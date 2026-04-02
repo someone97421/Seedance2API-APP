@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seedance 多模态视频生成器</title>
+    <link rel="icon" type="image/png" href="./favicon.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #165dff;
+            --primary-hover: #4080ff;
+            --success: #00b42a;
+            --warning: #ff7d00;
+            --danger: #f53f3f;
+            --bg: #f5f5f5;
+            --card-bg: #fff;
+            --border: #e5e6eb;
+            --text: #1d2129;
+            --text-secondary: #86909c;
+            --radius: 8px;
+            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+            --chip-bg: rgba(22, 93, 255, 0.1);
+            --chip-border: rgba(22, 93, 255, 0.3);
+            --chip-text: #165dff;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #165dff 0%, #722ed1 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        header h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+        
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+        
+        @media (max-width: 1100px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        input[type="password"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .input-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: var(--text);
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        /* 配置折叠 */
+        .config-toggle {
+            cursor: pointer;
+            user-select: none;
+            color: var(--primary);
+            font-size: 14px;
+        }
+        
+        .config-content {
+            display: none;
+            margin-top: 16px;
+        }
+        
+        .config-content.expanded {
+            display: block;
+        }
+        
+        /* 密码输入框 */
+        .password-input {
+            position: relative;
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+        
+        /* 富文本提示词编辑器 */
+        .prompt-editor-wrapper {
+            position: relative;
+        }
+        
+        .prompt-editor {
+            min-height: 120px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+            color: var(--text);
+            transition: all 0.3s ease;
+            cursor: text;
+        }
+        
+        .prompt-editor:focus-within {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
+        }
+        
+        .prompt-editor:empty::before {
+            content: "描述视频内容，输入 @ 引用素材...";
+            color: #999;
+            pointer-events: none;
+        }
+        
+        /* 引用标签 (Chip) - 参考 ref.html */
+        .mention-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--chip-bg);
+            color: var(--chip-text);
+            border: 1px solid var(--chip-border);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            user-select: none;
+            vertical-align: middle;
+            margin: 0 2px;
+            transition: all 0.2s;
+        }
+        
+        .mention-chip:hover {
+            filter: brightness(1.2);
+        }
+        
+        .mention-chip svg {
+            width: 12px;
+            height: 12px;
+            margin-left: 2px;
+        }
+        
+        /* 引用选择弹出面板 */
+        .mention-popup {
+            position: absolute;
+            width: 220px;
+            max-height: 280px;
+            background: white;
+            border: 1px solid var(--primary);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px) scale(0.95);
+            transition: all 0.2s ease;
+        }
+        
+        .mention-popup.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+        
+        .mention-popup-header {
+            padding: 10px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+            background: #f7f8fa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .mention-popup-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px;
+        }
+        
+        .mention-popup-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.15s;
+            border: 2px solid transparent;
+        }
+        
+        .mention-popup-item:hover,
+        .mention-popup-item.selected {
+            background: var(--chip-bg);
+            border-color: var(--primary);
+        }
+        
+        .mention-popup-item img {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 6px;
+            display: block;
+            background: #f0f0f0;
+        }
+        
+        .mention-popup-item span {
+            font-size: 13px;
+            color: var(--primary);
+            font-family: monospace;
+            font-weight: 600;
+        }
+        
+        .mention-popup-empty {
+            padding: 24px 16px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        /* @ 按钮 */
+        .mention-btn {
+            position: absolute;
+            right: 12px;
+            top: 8px;
+            background: #f0f0f0;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 10;
+            font-weight: 600;
+        }
+        
+        .mention-btn:hover,
+        .mention-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        /* 素材上传三列布局 */
+        .assets-upload-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .assets-upload-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .asset-upload-col {
+            background: #f7f8fa;
+            border-radius: var(--radius);
+            padding: 12px;
+        }
+        
+        .asset-upload-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .asset-count {
+            background: #e8f3ff;
+            color: var(--primary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        
+        .url-input-compact {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        
+        .url-input-compact input {
+            flex: 1;
+            padding: 6px 8px;
+            font-size: 12px;
+        }
+        
+        .url-input-compact button {
+            padding: 6px 10px;
+            font-size: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .upload-zone-compact {
+            background: white;
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 12px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+            color: var(--text-secondary);
+            user-select: none;
+        }
+        
+        .upload-zone-compact:hover,
+        .upload-zone-compact.dragover {
+            border-color: var(--primary);
+            background: #e8f3ff;
+            color: var(--primary);
+        }
+        
+        .media-list-compact {
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .media-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 6px 8px;
+        }
+        
+        .media-item.success {
+            border-color: var(--success);
+        }
+        
+        .media-preview {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        
+        .media-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .media-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .media-name {
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .media-status {
+            font-size: 10px;
+            color: var(--success);
+        }
+        
+        .btn-remove {
+            width: 20px;
+            height: 20px;
+            background: var(--danger);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        /* 右侧历史记录 */
+        .sidebar {
+            position: sticky;
+            top: 20px;
+        }
+        
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .history-item {
+            background: #f7f8fa;
+            border-radius: var(--radius);
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .history-item:hover {
+            background: #e8f3ff;
+        }
+        
+        .history-thumb {
+            width: 100%;
+            height: 100px;
+            background: #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        
+        .history-thumb video,
+        .history-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .history-info {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .history-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        
+        .history-actions button {
+            flex: 1;
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        
+        /* 任务记录列表 */
+        .task-record-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .task-record-item {
+            background: #f7f8fa;
+            border-radius: var(--radius);
+            padding: 12px;
+            border-left: 3px solid var(--primary);
+            transition: all 0.2s;
+        }
+        
+        .task-record-item.status-running {
+            border-left-color: var(--warning);
+            animation: pulse-border 2s infinite;
+        }
+        
+        .task-record-item.status-succeeded {
+            border-left-color: var(--success);
+        }
+        
+        .task-record-item.status-failed {
+            border-left-color: var(--danger);
+        }
+        
+        @keyframes pulse-border {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .task-record-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        
+        .task-record-id {
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--primary);
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 180px;
+        }
+        
+        .task-record-status {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        
+        .task-record-status.running {
+            background: #fff7e6;
+            color: var(--warning);
+        }
+        
+        .task-record-status.succeeded {
+            background: #e8ffea;
+            color: var(--success);
+        }
+        
+        .task-record-status.failed {
+            background: #ffece8;
+            color: var(--danger);
+        }
+        
+        .task-record-status.pending {
+            background: #e8f3ff;
+            color: var(--primary);
+        }
+        
+        .task-record-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        
+        .task-record-actions {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .task-record-actions button {
+            flex: 1;
+            padding: 4px 6px;
+            font-size: 11px;
+        }
+        
+        /* 底部历史记录横向网格 */
+        .history-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+        
+        .history-grid .empty-state {
+            grid-column: 1 / -1;
+        }
+        
+        /* 播放窗口 */
+        .player-window {
+            background: #1a1a1a;
+            border-radius: var(--radius);
+            overflow: hidden;
+            margin-top: 16px;
+        }
+        
+        .player-window video {
+            width: 100%;
+            max-height: 400px;
+            display: block;
+        }
+        
+        .player-info {
+            padding: 12px;
+            color: white;
+            font-size: 13px;
+        }
+        
+        /* 调试窗 */
+        .debug-panel {
+            margin-top: 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+        
+        .debug-header {
+            background: #f7f8fa;
+            padding: 10px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .debug-content {
+            display: none;
+            background: #1a1a1a;
+            color: #00ff88;
+            font-family: "Consolas", "Monaco", monospace;
+            font-size: 12px;
+            padding: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .debug-content.expanded {
+            display: block;
+        }
+        
+        .debug-section {
+            margin-bottom: 16px;
+        }
+        
+        .debug-section-title {
+            color: #74c0fc;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        
+        .debug-code {
+            background: #0d0d0d;
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        
+        .checkbox-group input {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 40px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎬 Seedance 多模态视频生成器</h1>
+        <p>图片+视频+音频 多模态融合生成</p>
+    </header>
+    
+    <div class="container">
+        <div class="main-layout">
+            <!-- 左侧：配置和生成 -->
+            <div class="main-content">
+                <!-- API 配置（可折叠，默认关闭） -->
+                <div class="card">
+                    <div class="card-title">
+                        <span>🔑 API 配置</span>
+                        <span class="config-toggle" onclick="toggleConfig()">
+                            <span id="configToggleText">展开 ▼</span>
+                        </span>
+                    </div>
+                    <div class="config-content" id="configContent">
+                        <div class="input-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label>Seedance API Key <span style="color: var(--danger);">*</span></label>
+                                <div class="password-input">
+                                    <input type="password" id="apiKey" placeholder="ARK_API_KEY">
+                                    <span class="password-toggle" onclick="togglePassword('apiKey')">👁️</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>ImgBB API Key（图片上传）</label>
+                                <div class="password-input">
+                                    <input type="password" id="imgbbKey" placeholder="可选">
+                                    <span class="password-toggle" onclick="togglePassword('imgbbKey')">👁️</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="input-row">
+                            <div class="form-group">
+                                <label>Base URL</label>
+                                <input type="text" id="baseUrl" value="https://ark.cn-beijing.volces.com/api/v3">
+                            </div>
+                            <div class="form-group">
+                                <label>ImgBB 自动删除（分钟）</label>
+                                <input type="number" id="imgbbExpiry" value="60" min="1" max="1440">
+                            </div>
+                            <div class="form-group">
+                                <label>轮询间隔（秒）</label>
+                                <input type="number" id="pollInterval" value="30" min="10" max="300">
+                            </div>
+                            <div class="form-group">
+                                <label>任务记录保存数量</label>
+                                <input type="number" id="taskRecordLimit" value="20" min="1" max="100" onchange="saveAllConfigs()">
+                            </div>
+                            <div class="form-group">
+                                <label>历史记录保留数量</label>
+                                <input type="number" id="historyLimitConfig" value="10" min="1" max="50" onchange="saveAllConfigs()">
+                            </div>
+                        </div>
+                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn btn-secondary btn-sm" onclick="exportConfig()">💾 导出配置</button>
+                            <label class="btn btn-secondary btn-sm" style="cursor: pointer;">
+                                📂 导入配置
+                                <input type="file" accept=".json" style="display: none;" onchange="importConfig(event)">
+                            </label>
+                            <button class="btn btn-danger btn-sm" onclick="clearAllConfigs()">🗑️ 清除所有配置</button>
+                            <span style="font-size: 12px; color: var(--text-secondary); margin-left: auto; align-self: center;">配置自动保存到浏览器</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 生成配置 -->
+                <div class="card">
+                    <div class="card-title">🎨 多模态参考生视频</div>
+                    
+                    <!-- 提示词输入（富文本，支持@引用） -->
+                    <div class="form-group">
+                        <label>提示词 <span style="color: var(--danger);">*</span></label>
+                        <div class="prompt-editor-wrapper">
+                            <div class="prompt-editor" id="promptEditor" contenteditable="true" 
+                                 oninput="onPromptInput()" onkeydown="onPromptKeyDown(event)"
+                                 onclick="saveEditorRange()"></div>
+                            <button class="mention-btn" id="mentionBtn" onclick="toggleMentionPopup()">@</button>
+                            
+                            <!-- 引用选择弹出面板 -->
+                            <div class="mention-popup" id="mentionPopup">
+                                <div class="mention-popup-header">
+                                    <span>引用素材</span>
+                                    <span style="font-size: 11px; color: var(--text-secondary);">↑↓选择 · 回车确认</span>
+                                </div>
+                                <div class="mention-popup-list" id="mentionPopupList">
+                                    <div class="mention-popup-empty">暂无素材，请先上传</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 参考素材上传 - 三列布局 -->
+                    <div class="form-group">
+                        <label>📎 参考素材</label>
+                        <div class="assets-upload-row">
+                            <!-- 图片 -->
+                            <div class="asset-upload-col">
+                                <div class="asset-upload-header">
+                                    <span>🖼️ 图片</span>
+                                    <span class="asset-count">0-9</span>
+                                </div>
+                                <div class="url-input-compact">
+                                    <input type="text" id="imageUrlInput" placeholder="URL..." onkeypress="if(event.key==='Enter')addAssetFromInput('image')">
+                                    <button onclick="addAssetFromInput('image')">+</button>
+                                </div>
+                                <div class="upload-zone-compact" id="imageZone">
+                                    <span>📁 拖拽/点击上传</span>
+                                </div>
+                                <input type="file" id="imageFile" class="file-input" accept="image/*" multiple onchange="handleFileSelect(event, 'image')">
+                                <div class="media-list-compact" id="imageList"></div>
+                            </div>
+                            
+                            <!-- 视频 -->
+                            <div class="asset-upload-col">
+                                <div class="asset-upload-header">
+                                    <span>🎥 视频</span>
+                                    <span class="asset-count">0-3</span>
+                                </div>
+                                <div class="url-input-compact">
+                                    <input type="text" id="videoUrlInput" placeholder="URL..." onkeypress="if(event.key==='Enter')addAssetFromInput('video')">
+                                    <button onclick="addAssetFromInput('video')">+</button>
+                                </div>
+                                <div class="upload-zone-compact" id="videoZone">
+                                    <span>🎬 拖拽/点击上传</span>
+                                </div>
+                                <input type="file" id="videoFile" class="file-input" accept="video/*" multiple onchange="handleFileSelect(event, 'video')">
+                                <div class="media-list-compact" id="videoList"></div>
+                            </div>
+                            
+                            <!-- 音频 -->
+                            <div class="asset-upload-col">
+                                <div class="asset-upload-header">
+                                    <span>🔊 音频</span>
+                                    <span class="asset-count">0-3</span>
+                                </div>
+                                <div class="url-input-compact">
+                                    <input type="text" id="audioUrlInput" placeholder="URL..." onkeypress="if(event.key==='Enter')addAssetFromInput('audio')">
+                                    <button onclick="addAssetFromInput('audio')">+</button>
+                                </div>
+                                <div class="upload-zone-compact" id="audioZone">
+                                    <span>🎵 拖拽/点击上传</span>
+                                </div>
+                                <input type="file" id="audioFile" class="file-input" accept="audio/*" multiple onchange="handleFileSelect(event, 'audio')">
+                                <div class="media-list-compact" id="audioList"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 生成参数 -->
+                    <div class="input-row">
+                        <div class="form-group">
+                            <label>模型</label>
+                            <select id="model">
+                                <option value="doubao-seedance-2-0-260128">Seedance 2.0</option>
+                                <option value="doubao-seedance-2-0-fast-260128">Seedance 2.0 Fast</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>分辨率</label>
+                            <select id="resolution">
+                                <option value="480p">480p</option>
+                                <option value="720p" selected>720p</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>画面比例</label>
+                            <select id="ratio">
+                                <option value="16:9" selected>16:9</option>
+                                <option value="9:16">9:16</option>
+                                <option value="1:1">1:1</option>
+                                <option value="4:3">4:3</option>
+                                <option value="3:4">3:4</option>
+                                <option value="21:9">21:9</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>时长（秒）</label>
+                            <input type="number" id="duration" value="5" min="4" max="15">
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                        <label class="checkbox-group">
+                            <input type="checkbox" id="generateAudio" checked>
+                            <span>生成音频</span>
+                        </label>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="submitTask()" style="width: 100%;">
+                        🚀 提交生成任务
+                    </button>
+                    
+                    <!-- 播放窗口 -->
+                    <div class="player-window" id="playerWindow" style="display: none;">
+                        <video id="resultVideo" controls></video>
+                        <div class="player-info">
+                            <div id="playerInfoText"></div>
+                            <a id="downloadLink" href="#" target="_blank" class="btn btn-success btn-sm" style="margin-top: 8px;">
+                                ⬇️ 下载视频
+                            </a>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+            
+            <!-- 右侧：任务记录 -->
+            <div class="sidebar">
+                <div class="card">
+                    <div class="card-title">
+                        <span>📋 任务记录</span>
+                        <button class="btn btn-danger btn-sm" onclick="clearTaskRecords()">清空</button>
+                    </div>
+                    <div class="task-record-list" id="taskRecordList">
+                        <div class="empty-state">暂无任务</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部：生成历史 -->
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-title">
+                <span>📜 生成历史</span>
+                <button class="btn btn-danger btn-sm" onclick="clearHistory()">清空</button>
+            </div>
+            <div class="history-grid" id="historyList">
+                <div class="empty-state">暂无生成记录</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // ==================== 数据存储 ====================
+        let assets = { images: [], videos: [], audios: [] };
+        // 多任务管理：key=taskId, value={id, status, timer, requestLog, responseLog, prompt, time, videoUrl}
+        let activeTasks = new Map();
+        let mentionSelectedIndex = 0;
+        let savedRange = null;
+        let isMentionPopupOpen = false;
+        
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Seedance Video Generator 初始化中...');
+            loadAllConfigs();
+            loadHistory();
+            loadTaskRecords();
+            initDragUploads();
+            setupMentionHandlers();
+            console.log('🎉 初始化完成！');
+        });
+        
+        // ==================== 配置管理 ====================
+        function loadAllConfigs() {
+            const config = JSON.parse(localStorage.getItem('seedance_app_config') || '{}');
+            
+            if (config.apiKey) document.getElementById('apiKey').value = config.apiKey;
+            if (config.imgbbKey) document.getElementById('imgbbKey').value = config.imgbbKey;
+            if (config.baseUrl) document.getElementById('baseUrl').value = config.baseUrl;
+            if (config.imgbbExpiry) document.getElementById('imgbbExpiry').value = config.imgbbExpiry;
+            if (config.pollInterval) document.getElementById('pollInterval').value = config.pollInterval;
+            if (config.taskRecordLimit) document.getElementById('taskRecordLimit').value = config.taskRecordLimit;
+            if (config.historyLimit) document.getElementById('historyLimitConfig').value = config.historyLimit;
+            if (config.model) document.getElementById('model').value = config.model;
+            if (config.resolution) document.getElementById('resolution').value = config.resolution;
+            if (config.ratio) document.getElementById('ratio').value = config.ratio;
+            if (config.duration) document.getElementById('duration').value = config.duration;
+            if (config.generateAudio !== undefined) document.getElementById('generateAudio').checked = config.generateAudio;
+            
+            setupAutoSave();
+        }
+        
+        function setupAutoSave() {
+            const configInputs = ['apiKey', 'imgbbKey', 'baseUrl', 'imgbbExpiry', 'pollInterval', 'taskRecordLimit', 'historyLimitConfig', 'model', 'resolution', 'ratio', 'duration', 'generateAudio'];
+            configInputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', saveAllConfigs);
+                }
+            });
+        }
+        
+        function saveAllConfigs() {
+            const config = {
+                apiKey: document.getElementById('apiKey').value,
+                imgbbKey: document.getElementById('imgbbKey').value,
+                baseUrl: document.getElementById('baseUrl').value,
+                imgbbExpiry: document.getElementById('imgbbExpiry').value,
+                pollInterval: document.getElementById('pollInterval').value,
+                taskRecordLimit: document.getElementById('taskRecordLimit').value,
+                historyLimit: document.getElementById('historyLimitConfig').value,
+                model: document.getElementById('model').value,
+                resolution: document.getElementById('resolution').value,
+                ratio: document.getElementById('ratio').value,
+                duration: document.getElementById('duration').value,
+                generateAudio: document.getElementById('generateAudio').checked
+            };
+            localStorage.setItem('seedance_app_config', JSON.stringify(config));
+        }
+        
+        function exportConfig() {
+            const config = JSON.parse(localStorage.getItem('seedance_app_config') || '{}');
+            const historyConfig = JSON.parse(localStorage.getItem('seedance_history_config') || '{}');
+            const fullConfig = {
+                appConfig: config,
+                historyConfig: historyConfig,
+                exportTime: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(fullConfig, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `seedance-config-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function importConfig(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const fullConfig = JSON.parse(e.target.result);
+                    if (fullConfig.appConfig) {
+                        localStorage.setItem('seedance_app_config', JSON.stringify(fullConfig.appConfig));
+                    }
+                    if (fullConfig.historyConfig) {
+                        localStorage.setItem('seedance_history_config', JSON.stringify(fullConfig.historyConfig));
+                    }
+                    alert('配置导入成功！页面将刷新...');
+                    location.reload();
+                } catch (err) {
+                    alert('配置文件格式错误：' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        function clearAllConfigs() {
+            if (confirm('确定要清除所有配置吗？')) {
+                localStorage.removeItem('seedance_app_config');
+                localStorage.removeItem('seedance_history_config');
+                localStorage.removeItem('seedance_history');
+                localStorage.removeItem('seedance_task_records');
+                location.reload();
+            }
+        }
+        
+        function toggleConfig() {
+            const content = document.getElementById('configContent');
+            const text = document.getElementById('configToggleText');
+            content.classList.toggle('expanded');
+            text.textContent = content.classList.contains('expanded') ? '收起 ▲' : '展开 ▼';
+        }
+        
+        setTimeout(toggleConfig, 100);
+        
+        function togglePassword(id) {
+            const input = document.getElementById(id);
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+        
+        // ==================== @引用系统（参考 ref.html）====================
+        const promptEditor = document.getElementById('promptEditor');
+        const mentionPopup = document.getElementById('mentionPopup');
+        const mentionBtn = document.getElementById('mentionBtn');
+        
+        function saveEditorRange() {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                savedRange = sel.getRangeAt(0).cloneRange();
+            }
+        }
+        
+        function onPromptInput() {
+            const text = promptEditor.innerText;
+            const sel = window.getSelection();
+            
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                const textNode = range.startContainer;
+                if (textNode.nodeType === Node.TEXT_NODE) {
+                    const content = textNode.textContent;
+                    const offset = range.startOffset;
+                    // 如果光标前面的字符是 @
+                    if (content.charAt(offset - 1) === '@') {
+                        savedRange = range.cloneRange();
+                        openMentionPopup();
+                        return;
+                    }
+                }
+            }
+            
+            // 如果没匹配到光标前的 @，检查是否需要关闭
+            if (isMentionPopupOpen) {
+                // ... 如果光标前面是空格等，或者已经删除了 @
+                closeMentionPopup();
+            }
+        }
+        
+        function onPromptKeyDown(e) {
+            if (!isMentionPopupOpen) {
+                if (e.key === '@') {
+                    const sel = window.getSelection();
+                    savedRange = sel.getRangeAt(0).cloneRange();
+                }
+                return;
+            }
+            
+            const items = document.querySelectorAll('.mention-popup-item');
+            
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    mentionSelectedIndex = (mentionSelectedIndex + 1) % items.length;
+                    updateSelection(items);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    mentionSelectedIndex = (mentionSelectedIndex - 1 + items.length) % items.length;
+                    updateSelection(items);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (items[mentionSelectedIndex]) {
+                        selectMention(items[mentionSelectedIndex].dataset.index);
+                    }
+                    break;
+                case 'Escape':
+                    closeMentionPopup();
+                    break;
+            }
+        }
+        
+        function toggleMentionPopup() {
+            if (isMentionPopupOpen) {
+                closeMentionPopup();
+            } else {
+                const sel = window.getSelection();
+                if (sel.rangeCount > 0) {
+                    savedRange = sel.getRangeAt(0).cloneRange();
+                }
+                openMentionPopup();
+            }
+        }
+        
+        function openMentionPopup() {
+            const allAssets = [...assets.images, ...assets.videos, ...assets.audios];
+            const listEl = document.getElementById('mentionPopupList');
+            
+            if (allAssets.length === 0) {
+                listEl.innerHTML = '<div class="mention-popup-empty">暂无素材，请先上传</div>';
+            } else {
+                listEl.innerHTML = allAssets.map((asset, index) => {
+                    const iconHtml = asset.type === 'image' 
+                        ? `<img src="${asset.url}" alt="">`
+                        : asset.type === 'video' ? '🎬' : '🎵';
+                    const tagName = asset.type === 'image' ? 'img' : asset.type === 'video' ? 'video' : 'audio';
+                    
+                    return `
+                        <div class="mention-popup-item ${index === 0 ? 'selected' : ''}" 
+                             data-index="${index}" 
+                             onclick="selectMention(${index})">
+                            ${iconHtml}
+                            <span>@${tagName}${asset.index}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            mentionPopup.classList.add('active');
+            mentionBtn.classList.add('active');
+            isMentionPopupOpen = true;
+            mentionSelectedIndex = 0;
+            
+            positionPopup();
+        }
+        
+        function closeMentionPopup() {
+            mentionPopup.classList.remove('active');
+            mentionBtn.classList.remove('active');
+            isMentionPopupOpen = false;
+        }
+        
+        function positionPopup() {
+            const editorRect = promptEditor.getBoundingClientRect();
+            mentionPopup.style.left = '0';
+            mentionPopup.style.top = (promptEditor.offsetHeight + 5) + 'px';
+            mentionPopup.style.width = '220px';
+        }
+        
+        function updateSelection(items) {
+            items.forEach((item, index) => {
+                item.classList.toggle('selected', index === mentionSelectedIndex);
+            });
+        }
+        
+        function selectMention(assetListIndex) {
+            const allAssets = [...assets.images, ...assets.videos, ...assets.audios];
+            const asset = allAssets[assetListIndex];
+            if (!asset) return;
+            
+            const sel = window.getSelection();
+            
+            // 如果有保存的范围，恢复它
+            if (savedRange) {
+                sel.removeAllRanges();
+                sel.addRange(savedRange);
+            }
+            
+            // 删除 @ 字符
+            const range = sel.getRangeAt(0);
+            const textNode = range.startContainer;
+            
+            if (textNode.nodeType === Node.TEXT_NODE) {
+                const text = textNode.textContent;
+                const offset = range.startOffset;
+                const atPos = text.lastIndexOf('@', offset);
+                if (atPos !== -1) {
+                    textNode.textContent = text.slice(0, atPos) + text.slice(atPos + 1);
+                    range.setStart(textNode, atPos);
+                    range.setEnd(textNode, atPos);
+                }
+            } else if (textNode.nodeType === Node.ELEMENT_NODE) {
+                // if it's replacing an existing chip
+                const nodeToReplace = textNode.childNodes[range.startOffset];
+                if (nodeToReplace && nodeToReplace.classList && nodeToReplace.classList.contains('mention-chip')) {
+                    range.selectNode(nodeToReplace);
+                    range.deleteContents();
+                } else if (textNode.classList && textNode.classList.contains('mention-chip')) {
+                     // We are replacing the chip itself
+                     range.selectNode(textNode);
+                     range.deleteContents();
+                }
+            }
+            
+            // 插入引用标签
+            const tagName = asset.type === 'image' ? 'img' : asset.type === 'video' ? 'video' : 'audio';
+            const chip = document.createElement('span');
+            chip.className = 'mention-chip';
+            chip.contentEditable = 'false';
+            chip.dataset.type = asset.type;
+            chip.dataset.index = asset.index;
+            chip.innerHTML = `@${tagName}${asset.index} <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
+            
+            chip.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                // Instead of deleting, open the popup to switch, and select this chip to be replaced
+                const chipRange = document.createRange();
+                chipRange.selectNode(chip);
+                savedRange = chipRange;
+                openMentionPopup();
+            };
+            
+            range.insertNode(chip);
+            
+            // 添加空格
+            const space = document.createTextNode('\u00A0');
+            chip.parentNode.insertBefore(space, chip.nextSibling);
+            
+            // 移动光标
+            range.setStart(space, 1);
+            range.setEnd(space, 1);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            
+            savedRange = null;
+            closeMentionPopup();
+        }
+        
+        function setupMentionHandlers() {
+            document.addEventListener('click', function(e) {
+                if (!mentionPopup.contains(e.target) && e.target !== mentionBtn && !e.target.closest('.mention-chip')) {
+                    closeMentionPopup();
+                }
+            });
+        }
+        
+        // ==================== 素材管理 ====================
+        function addAsset(type, url, name, isLocal = false) {
+            const list = assets[type + 's'];
+            const index = list.length + 1;
+            const asset = {
+                id: Date.now() + Math.random(),
+                type,
+                url,
+                name: name.replace(/\.[^/.]+$/, ''),
+                index,
+                isLocal
+            };
+            list.push(asset);
+            updateAssetsList();
+            return asset;
+        }
+        
+        function removeAsset(type, id) {
+            const key = type + 's';
+            assets[key] = assets[key].filter(a => a.id !== id);
+            assets[key].forEach((a, i) => a.index = i + 1);
+            updateAssetsList();
+        }
+        
+        function updateAssetsList() {
+            ['image', 'video', 'audio'].forEach(type => {
+                const container = document.getElementById(type + 'List');
+                const list = assets[type + 's'];
+                
+                if (list.length === 0) {
+                    container.innerHTML = '';
+                    return;
+                }
+                
+                container.innerHTML = list.map(asset => {
+                    const tagName = type === 'image' ? 'img' : type === 'video' ? 'video' : 'audio';
+                    return `
+                        <div class="media-item ${asset.isLocal ? '' : 'success'}">
+                            <div class="media-preview">
+                                ${type === 'image' && !asset.isLocal ? `<img src="${asset.url}" alt="">` : 
+                                  type === 'image' ? '🖼️' :
+                                  type === 'video' ? '🎬' : '🎵'}
+                            </div>
+                            <div class="media-info">
+                                <div class="media-name">${asset.name}</div>
+                                <div class="media-status">${asset.isLocal ? '本地预览' : `@${tagName}${asset.index}`}</div>
+                            </div>
+                            <button class="btn-remove" onclick="removeAsset('${type}', ${asset.id})">×</button>
+                        </div>
+                    `;
+                }).join('');
+            });
+        }
+        
+        // ==================== 拖拽上传 ====================
+        function initDragUploads() {
+            initDragUpload('imageZone', 'imageFile', 'image');
+            initDragUpload('videoZone', 'videoFile', 'video');
+            initDragUpload('audioZone', 'audioFile', 'audio');
+        }
+        
+        function initDragUpload(zoneId, fileInputId, type) {
+            const zone = document.getElementById(zoneId);
+            const fileInput = document.getElementById(fileInputId);
+            
+            if (!zone || !fileInput) return;
+            
+            zone.addEventListener('click', () => fileInput.click());
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                zone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+            
+            zone.addEventListener('dragenter', () => zone.classList.add('dragover'));
+            zone.addEventListener('dragover', () => zone.classList.add('dragover'));
+            zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+            zone.addEventListener('drop', (e) => {
+                zone.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) handleFiles(files, type);
+            });
+        }
+        
+        // ==================== 文件处理 ====================
+        function addAssetFromInput(type) {
+            const input = document.getElementById(type + 'UrlInput');
+            const url = input.value.trim();
+            if (!url) return;
+            
+            if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('asset://')) {
+                alert('URL 必须以 http://、https:// 或 asset:// 开头');
+                return;
+            }
+            
+            addAsset(type, url, url.split('/').pop());
+            input.value = '';
+        }
+        
+        function handleFileSelect(event, type) {
+            const files = Array.from(event.target.files);
+            handleFiles(files, type);
+            event.target.value = '';
+        }
+        
+        function handleFiles(files, type) {
+            Array.from(files).forEach(file => {
+                if (type === 'image' && !file.type.startsWith('image/')) return;
+                if (type === 'video' && !file.type.startsWith('video/')) return;
+                if (type === 'audio' && !file.type.startsWith('audio/')) return;
+                
+                const localUrl = URL.createObjectURL(file);
+                
+                if (type === 'image') {
+                    uploadToImgBB(file);
+                } else {
+                    addAsset(type, localUrl, file.name, true);
+                }
+            });
+        }
+        
+        async function uploadToImgBB(file) {
+            const apiKey = document.getElementById('imgbbKey').value.trim();
+            const expiry = document.getElementById('imgbbExpiry').value || 60;
+            
+            if (!apiKey) {
+                alert('请先配置 ImgBB API Key');
+                return;
+            }
+            
+            try {
+                const base64 = await fileToBase64(file);
+                const base64Data = base64.split(',')[1];
+                
+                const formData = new FormData();
+                formData.append('image', base64Data);
+                formData.append('name', file.name.replace(/\.[^/.]+$/, ''));
+                formData.append('expiration', expiry * 60);
+                
+                const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addAsset('image', result.data.url, file.name);
+                } else {
+                    alert('上传失败: ' + (result.error?.message || '未知错误'));
+                }
+            } catch (error) {
+                alert('上传失败: ' + error.message);
+            }
+        }
+        
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // 粘贴上传
+        document.addEventListener('paste', (e) => {
+            if (e.target.closest('#promptEditor')) return;
+            
+            const items = e.clipboardData.items;
+            for (let item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    const blob = item.getAsFile();
+                    if (blob) uploadToImgBB(blob);
+                }
+            }
+        });
+        
+        // ==================== 获取提示词文本 ====================
+        function getPromptText() {
+            let text = '';
+            
+            function traverse(node) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    text += node.textContent;
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    if (node.classList.contains('mention-chip')) {
+                        const type = node.dataset.type;
+                        const index = node.dataset.index;
+                        const typeName = type === 'image' ? '图片' : type === 'video' ? '视频' : '音频';
+                        text += `（${typeName}${index}）`;
+                    } else if (node.tagName === 'BR') {
+                        text += '\n';
+                    } else {
+                        for (let child of node.childNodes) {
+                            traverse(child);
+                        }
+                        if ((node.tagName === 'DIV' || node.tagName === 'P') && node.nextSibling) {
+                            text += '\n';
+                        }
+                    }
+                }
+            }
+            
+            traverse(promptEditor);
+            return text.replace(/\n{3,}/g, '\n\n').trim();
+        }
+        
+        // ==================== 任务提交（多任务） ====================
+        async function submitTask() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const prompt = getPromptText();
+            
+            if (!apiKey) { alert('请输入 API Key'); return; }
+            if (!prompt) { alert('请输入提示词'); return; }
+            
+            const content = [{ type: 'text', text: prompt }];
+            assets.images.forEach(img => {
+                content.push({ type: 'image_url', image_url: { url: img.url }, role: 'reference_image' });
+            });
+            assets.videos.forEach(vid => {
+                content.push({ type: 'video_url', video_url: { url: vid.url }, role: 'reference_video' });
+            });
+            assets.audios.forEach(aud => {
+                content.push({ type: 'audio_url', audio_url: { url: aud.url }, role: 'reference_audio' });
+            });
+            
+            const body = {
+                model: document.getElementById('model').value,
+                content: content,
+                generate_audio: document.getElementById('generateAudio').checked,
+                resolution: document.getElementById('resolution').value,
+                ratio: document.getElementById('ratio').value,
+                duration: parseInt(document.getElementById('duration').value),
+                watermark: false
+            };
+            
+            const requestLog = `POST ${baseUrl}/contents/generations/tasks\nHeaders:\n  Authorization: Bearer ${apiKey.substring(0, 10)}...\nBody:\n${JSON.stringify(body, null, 2)}`;
+            
+            try {
+                const response = await fetch(`${baseUrl}/contents/generations/tasks`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                const result = await response.json();
+                const responseLogText = `Status: ${response.status}\nBody:\n${JSON.stringify(result, null, 2)}`;
+                
+                if (!response.ok) {
+                    throw new Error(result.error?.message || `HTTP ${response.status}`);
+                }
+                
+                const taskId = result.id;
+                const taskRecord = {
+                    id: taskId,
+                    status: 'running',
+                    timer: null,
+                    requestLog: requestLog,
+                    responseLog: responseLogText,
+                    prompt: prompt,
+                    promptHtml: promptEditor.innerHTML,
+                    assets: JSON.parse(JSON.stringify(assets)),
+                    params: {
+                        model: document.getElementById('model').value,
+                        resolution: document.getElementById('resolution').value,
+                        ratio: document.getElementById('ratio').value,
+                        duration: document.getElementById('duration').value,
+                        generateAudio: document.getElementById('generateAudio').checked
+                    },
+                    time: new Date().toISOString(),
+                    videoUrl: null
+                };
+                
+                activeTasks.set(taskId, taskRecord);
+                trimTaskRecords();
+                renderTaskRecords();
+                saveTaskRecords();
+                
+                startPollingForTask(taskId);
+                
+            } catch (error) {
+                alert('提交失败: ' + error.message);
+            }
+        }
+        
+        // ==================== 并发轮询 ====================
+        function startPollingForTask(taskId) {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const interval = parseInt(document.getElementById('pollInterval').value) * 1000 || 30000;
+            
+            const doPoll = async () => {
+                const task = activeTasks.get(taskId);
+                if (!task || task.status === 'succeeded' || task.status === 'failed') return;
+                
+                try {
+                    const response = await fetch(`${baseUrl}/contents/generations/tasks/${taskId}`, {
+                        headers: { 'Authorization': `Bearer ${apiKey}` }
+                    });
+                    const result = await response.json();
+                    
+                    task.responseLog += `\n\n[${new Date().toLocaleTimeString()}] Poll:\n${JSON.stringify(result, null, 2)}`;
+                    
+                    if (result.status === 'succeeded') {
+                        clearInterval(task.timer);
+                        task.timer = null;
+                        task.status = 'succeeded';
+                        handleTaskComplete(taskId, result);
+                    } else if (result.status === 'failed') {
+                        clearInterval(task.timer);
+                        task.timer = null;
+                        task.status = 'failed';
+                        renderTaskRecords();
+                        saveTaskRecords();
+                    }
+                    
+                    // Only update UI if we are in debug view? No, renderTaskRecords updates everything
+                    renderTaskRecords();
+                } catch (error) {
+                    console.error(`轮询任务 ${taskId} 失败:`, error);
+                }
+            };
+            
+            doPoll();
+            const task = activeTasks.get(taskId);
+            if (task) {
+                task.timer = setInterval(doPoll, interval);
+            }
+        }
+        
+        function handleTaskComplete(taskId, result) {
+            const task = activeTasks.get(taskId);
+            if (!task) return;
+            
+            let videoUrl = null;
+            if (result.video_url) {
+                videoUrl = result.video_url;
+            } else if (result.url) {
+                videoUrl = result.url;
+            } else if (result.content && result.content.video_url) {
+                videoUrl = result.content.video_url;
+            } else if (result.data) {
+                if (result.data.video_url) videoUrl = result.data.video_url;
+                else if (result.data.url) videoUrl = result.data.url;
+            }
+            // Seedance API sometimes uses result.task_result.video_url
+            if (!videoUrl && result.task_result && result.task_result.video_url) {
+                videoUrl = result.task_result.video_url;
+            }
+            
+            task.videoUrl = videoUrl;
+            
+            if (videoUrl) {
+                document.getElementById('playerWindow').style.display = 'block';
+                document.getElementById('resultVideo').src = videoUrl;
+                document.getElementById('downloadLink').href = videoUrl;
+                document.getElementById('playerInfoText').textContent = `任务 ID: ${taskId}`;
+                document.getElementById('playerWindow').scrollIntoView({ behavior: 'smooth' });
+                
+                addToHistory({
+                    id: taskId,
+                    videoUrl: videoUrl,
+                    prompt: task.prompt,
+                    promptHtml: task.promptHtml,
+                    assets: task.assets,
+                    params: task.params,
+                    time: task.time
+                });
+            } else {
+                console.warn('任务完成但找不到视频链接:', result);
+                task.responseLog += `\n\n[报错] 找不到视频连接，完整的响应为: ${JSON.stringify(result)}`;
+            }
+            
+            renderTaskRecords();
+            saveTaskRecords();
+        }
+        
+        // ==================== 任务记录面板（右侧栏） ====================
+        function renderTaskRecords() {
+            const container = document.getElementById('taskRecordList');
+            const tasks = Array.from(activeTasks.values()).reverse();
+            
+            if (tasks.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无任务</div>';
+                return;
+            }
+            
+            const statusText = { running: '运行中', succeeded: '已完成', failed: '已失败', pending: '排队中' };
+            const statusEmoji = { running: '⏳', succeeded: '✅', failed: '❌', pending: '🕐' };
+            
+            container.innerHTML = tasks.map(task => {
+                const st = task.status || 'pending';
+                return `
+                    <div class="task-record-item status-${st}">
+                        <div class="task-record-header">
+                            <span class="task-record-id" title="${task.id}">${task.id}</span>
+                            <span class="task-record-status ${st}">${statusEmoji[st]} ${statusText[st] || st}</span>
+                        </div>
+                        <div class="task-record-time">${new Date(task.time).toLocaleString()}</div>
+                        <div class="task-record-actions" style="margin-bottom: 8px;">
+                            ${task.videoUrl ? `<button class="btn btn-primary btn-sm" onclick="previewTaskVideo('${task.id}')">▶️ 预览</button>` : ''}
+                            <button class="btn btn-secondary btn-sm" onclick="toggleTaskDebug('${task.id}')">🐛 调试</button>
+                            <button class="btn btn-danger btn-sm" onclick="removeTaskRecord('${task.id}')">🗑️</button>
+                        </div>
+                        <div class="task-debug-content" id="debug-${task.id}" style="display: none; background: #1a1a1a; color: #00ff88; font-family: monospace; font-size: 11px; padding: 10px; border-radius: 4px; max-height: 300px; overflow-y: auto;">
+                            <div style="color: #74c0fc; margin-bottom: 4px;">请求体:</div>
+                            <div style="background: #0d0d0d; padding: 8px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin-bottom: 8px;">${escapeHtml(task.requestLog || '')}</div>
+                            <div style="color: #74c0fc; margin-bottom: 4px;">响应日志:</div>
+                            <div style="background: #0d0d0d; padding: 8px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">${escapeHtml(task.responseLog || '')}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function toggleTaskDebug(taskId) {
+            const el = document.getElementById(`debug-${taskId}`);
+            if (el) {
+                el.style.display = el.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+        
+        function previewTaskVideo(taskId) {
+            const task = activeTasks.get(taskId);
+            if (task && task.videoUrl) {
+                document.getElementById('playerWindow').style.display = 'block';
+                document.getElementById('resultVideo').src = task.videoUrl;
+                document.getElementById('downloadLink').href = task.videoUrl;
+                document.getElementById('playerInfoText').textContent = `任务 ID: ${taskId}`;
+                document.getElementById('playerWindow').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+        
+        function removeTaskRecord(taskId) {
+            const task = activeTasks.get(taskId);
+            if (task && task.timer) clearInterval(task.timer);
+            activeTasks.delete(taskId);
+            renderTaskRecords();
+            saveTaskRecords();
+        }
+        
+        function clearTaskRecords() {
+            if (!confirm('确定要清空所有任务记录吗？')) return;
+            activeTasks.forEach(task => { if (task.timer) clearInterval(task.timer); });
+            activeTasks.clear();
+            renderTaskRecords();
+            saveTaskRecords();
+        }
+        
+        function trimTaskRecords() {
+            const limit = parseInt(document.getElementById('taskRecordLimit').value) || 20;
+            const tasks = Array.from(activeTasks.entries());
+            if (tasks.length <= limit) return;
+            // 删除最旧的已完成/失败任务
+            const toRemove = tasks.filter(([, t]) => t.status === 'succeeded' || t.status === 'failed');
+            while (activeTasks.size > limit && toRemove.length > 0) {
+                const [id, task] = toRemove.shift();
+                if (task.timer) clearInterval(task.timer);
+                activeTasks.delete(id);
+            }
+        }
+        
+        function saveTaskRecords() {
+            const records = [];
+            activeTasks.forEach((task, id) => {
+                records.push({ ...task, timer: null });
+            });
+            localStorage.setItem('seedance_task_records', JSON.stringify(records));
+        }
+        
+        function loadTaskRecords() {
+            const records = JSON.parse(localStorage.getItem('seedance_task_records') || '[]');
+            records.forEach(record => {
+                record.timer = null;
+                activeTasks.set(record.id, record);
+                // 恢复运行中任务的轮询
+                if (record.status === 'running') {
+                    startPollingForTask(record.id);
+                }
+            });
+            renderTaskRecords();
+        }
+        function escapeHtml(text) {
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        
+        // ==================== 历史记录（底部） ====================
+        function addToHistory(record) {
+            let history = JSON.parse(localStorage.getItem('seedance_history') || '[]');
+            const limit = parseInt(document.getElementById('historyLimitConfig').value) || 10;
+            
+            history.unshift(record);
+            if (history.length > limit) history = history.slice(0, limit);
+            
+            localStorage.setItem('seedance_history', JSON.stringify(history));
+            loadHistory();
+        }
+        
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('seedance_history') || '[]');
+            const container = document.getElementById('historyList');
+            
+            if (history.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无生成记录</div>';
+                return;
+            }
+            
+            container.innerHTML = history.map((item, index) => `
+                <div class="history-item">
+                    <div class="history-thumb" onclick="playHistoryVideo(${index})">
+                        <video src="${item.videoUrl}" preload="metadata"></video>
+                    </div>
+                    <div class="history-info">
+                        <div>${new Date(item.time).toLocaleString()}</div>
+                        <div style="font-size:11px;color:#86909c;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;" title="${escapeHtml(item.prompt || '')}">${escapeHtml((item.prompt || '').substring(0, 40))}</div>
+                    </div>
+                    <div class="history-actions">
+                        <button class="btn btn-primary btn-sm" onclick="playHistoryVideo(${index})">▶️ 预览</button>
+                        <button class="btn btn-success btn-sm" onclick="reuseHistory(${index})">🔄 复用</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteHistory(${index})">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function playHistoryVideo(index) {
+            const history = JSON.parse(localStorage.getItem('seedance_history') || '[]');
+            const item = history[index];
+            if (item && item.videoUrl) {
+                document.getElementById('playerWindow').style.display = 'block';
+                document.getElementById('resultVideo').src = item.videoUrl;
+                document.getElementById('downloadLink').href = item.videoUrl;
+                document.getElementById('playerInfoText').textContent = `任务 ID: ${item.id || 'N/A'}`;
+                document.getElementById('playerWindow').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+        
+        function reuseHistory(index) {
+            const history = JSON.parse(localStorage.getItem('seedance_history') || '[]');
+            const item = history[index];
+            if (!item) return;
+            
+            if (item.params) {
+                if (item.params.model) document.getElementById('model').value = item.params.model;
+                if (item.params.resolution) document.getElementById('resolution').value = item.params.resolution;
+                if (item.params.ratio) document.getElementById('ratio').value = item.params.ratio;
+                if (item.params.duration) document.getElementById('duration').value = item.params.duration;
+                if (item.params.generateAudio !== undefined) document.getElementById('generateAudio').checked = item.params.generateAudio;
+            }
+            
+            if (item.assets) {
+                assets = JSON.parse(JSON.stringify(item.assets));
+                updateAssetsList();
+            }
+            
+            if (item.promptHtml) {
+                promptEditor.innerHTML = item.promptHtml;
+            } else if (item.prompt) {
+                promptEditor.innerHTML = '';
+                promptEditor.textContent = item.prompt;
+            }
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            alert('已复用历史配置，可在此基础上修改后重新提交');
+        }
+        
+        function deleteHistory(index) {
+            let history = JSON.parse(localStorage.getItem('seedance_history') || '[]');
+            history.splice(index, 1);
+            localStorage.setItem('seedance_history', JSON.stringify(history));
+            loadHistory();
+        }
+        
+        function clearHistory() {
+            if (confirm('确定要清空所有历史记录吗？')) {
+                localStorage.removeItem('seedance_history');
+                loadHistory();
+            }
+        }
+    </script>
+</body>
+</html>
