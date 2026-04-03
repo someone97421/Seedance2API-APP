@@ -978,8 +978,9 @@
                         </label>
                     </div>
                     
-                    <button class="btn btn-primary" onclick="submitTask()" style="width: 100%;">
-                        🚀 提交生成任务
+                    <button class="btn btn-primary" onclick="submitTask()" style="width: 100%; display: flex; flex-direction: column; align-items: center; padding: 10px;">
+                        <span>🚀 提交生成任务</span>
+                        <span id="costEstimate" style="font-size: 11px; opacity: 0.8; font-weight: normal; margin-top: 2px;">预估: 0 Tokens (约 0.000 元)</span>
                     </button>
                     
                     <!-- 播放窗口 -->
@@ -1059,6 +1060,7 @@
             if (config.generateAudio !== undefined) document.getElementById('generateAudio').checked = config.generateAudio;
             
             setupAutoSave();
+            updateEstimate();
         }
         
         function setupAutoSave() {
@@ -1086,6 +1088,33 @@
                 generateAudio: document.getElementById('generateAudio').checked
             };
             localStorage.setItem('seedance_app_config', JSON.stringify(config));
+            updateEstimate();
+        }
+        
+        function updateEstimate() {
+            const model = document.getElementById('model')?.value;
+            if (!model) return;
+            
+            const resolution = document.getElementById('resolution').value;
+            const duration = parseInt(document.getElementById('duration').value) || 5;
+            const hasVideo = assets.videos.length > 0;
+            
+            let area = resolution === '720p' ? (1280 * 720) : (854 * 480);
+            const tokens = (area * 24 * duration) / 1024;
+            
+            let pricePerMillion = 0;
+            if (model.includes('fast')) {
+                pricePerMillion = hasVideo ? 22 : 37;
+            } else {
+                pricePerMillion = hasVideo ? 28 : 46;
+            }
+            
+            const cost = (tokens / 1000000) * pricePerMillion;
+            
+            const estimateEl = document.getElementById('costEstimate');
+            if (estimateEl) {
+                estimateEl.textContent = `预估: ${Math.round(tokens).toLocaleString()} Tokens (约 ${cost.toFixed(3)} 元)`;
+            }
         }
         
         function exportConfig() {
@@ -1384,6 +1413,7 @@
             };
             list.push(asset);
             updateAssetsList();
+            if (type === 'video') updateEstimate();
             return asset;
         }
         
@@ -1397,6 +1427,7 @@
             assets[key] = assets[key].filter(a => a.id !== id);
             assets[key].forEach((a, i) => a.index = i + 1);
             updateAssetsList();
+            if (type === 'video') updateEstimate();
             
             // 同步清理和更新富文本输入框中的引用标识（@chip）
             const chips = document.getElementById('promptEditor').querySelectorAll('.mention-chip');
@@ -1615,7 +1646,7 @@
 
             const submitBtn = document.querySelector('button[onclick="submitTask()"]');
             const originalBtnText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '⏳ 提交生成中...';
+            submitBtn.innerHTML = '<span>⏳ 提交生成中...</span>';
             submitBtn.disabled = true;
             
             const content = [{ type: 'text', text: prompt }];
