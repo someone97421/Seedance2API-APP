@@ -1175,8 +1175,6 @@
             text.textContent = content.classList.contains('expanded') ? '收起 ▲' : '展开 ▼';
         }
         
-        setTimeout(toggleConfig, 100);
-        
         function togglePassword(id) {
             const input = document.getElementById(id);
             input.type = input.type === 'password' ? 'text' : 'password';
