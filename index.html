@@ -1514,6 +1514,21 @@
         async function uploadToLitterbox(file, type) {
             const expiry = document.getElementById('litterboxExpiry').value || '1h';
             
+            const tempId = 'upload-' + Date.now() + Math.floor(Math.random() * 1000);
+            const container = document.getElementById(type + 'List');
+            if (container) {
+                const uploadingHtml = `
+                    <div class="media-item" id="${tempId}" style="border-color: var(--warning);">
+                        <div class="media-preview" style="font-size: 14px;">⏳</div>
+                        <div class="media-info">
+                            <div class="media-name">${file.name || '上传中...'}</div>
+                            <div class="media-status" style="color: var(--warning);">上传中...</div>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', uploadingHtml);
+            }
+
             try {
                 const formData = new FormData();
                 formData.append('reqtype', 'fileupload');
@@ -1531,12 +1546,17 @@
                 
                 const text = await response.text();
                 
+                const tempEl = document.getElementById(tempId);
+                if (tempEl) tempEl.remove();
+                
                 if (text && text.startsWith('https://')) {
-                    addAsset(type, text.trim(), file.name);
+                    addAsset(type, text.trim(), file.name || 'Pasted File');
                 } else {
                     alert('上传失败: ' + text);
                 }
             } catch (error) {
+                const tempEl = document.getElementById(tempId);
+                if (tempEl) tempEl.remove();
                 alert('上传失败: ' + error.message);
             }
         }
