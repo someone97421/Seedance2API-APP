@@ -832,7 +832,7 @@
                             </div>
                             <div class="form-group">
                                 <label>轮询间隔（秒）</label>
-                                <input type="number" id="pollInterval" value="30" min="10" max="300">
+                                <input type="number" id="pollInterval" value="15" min="10" max="300">
                             </div>
                             <div class="form-group">
                                 <label>任务记录保存数量</label>
@@ -840,7 +840,7 @@
                             </div>
                             <div class="form-group">
                                 <label>历史记录保留数量</label>
-                                <input type="number" id="historyLimitConfig" value="10" min="1" max="50" onchange="saveAllConfigs()">
+                                <input type="number" id="historyLimitConfig" value="20" min="1" max="50" onchange="saveAllConfigs()">
                             </div>
                         </div>
                         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap;">
@@ -944,14 +944,14 @@
                             <label>模型</label>
                             <select id="model">
                                 <option value="doubao-seedance-2-0-260128">Seedance 2.0</option>
-                                <option value="doubao-seedance-2-0-fast-260128">Seedance 2.0 Fast</option>
+                                <option value="doubao-seedance-2-0-fast-260128" selected>Seedance 2.0 Fast</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label>分辨率</label>
                             <select id="resolution">
-                                <option value="480p">480p</option>
-                                <option value="720p" selected>720p</option>
+                                <option value="480p" selected>480p</option>
+                                <option value="720p">720p</option>
                             </select>
                         </div>
                         <div class="form-group">
