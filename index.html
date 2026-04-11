@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seedance 多模态视频生成器</title>
+    <title>seedance2.0 API视频生成器</title>
     <link rel="icon" type="image/png" href="./favicon.png">
     <style>
         * {
@@ -13,21 +13,54 @@
         }
         
         :root {
-            --primary: #165dff;
-            --primary-hover: #4080ff;
+            --primary: #19b24b;
+            --primary-hover: #24cf5c;
             --success: #00b42a;
             --warning: #ff7d00;
             --danger: #f53f3f;
-            --bg: #f5f5f5;
-            --card-bg: #fff;
-            --border: #e5e6eb;
-            --text: #1d2129;
-            --text-secondary: #86909c;
+            --bg: #f3f9f4;
+            --card-bg: #ffffff;
+            --border: #d4e8d8;
+            --text: #132018;
+            --text-secondary: #4f6a58;
             --radius: 8px;
             --shadow: 0 2px 8px rgba(0,0,0,0.08);
-            --chip-bg: rgba(22, 93, 255, 0.1);
-            --chip-border: rgba(22, 93, 255, 0.3);
-            --chip-text: #165dff;
+            --chip-bg: rgba(25, 178, 75, 0.12);
+            --chip-border: rgba(25, 178, 75, 0.35);
+            --chip-text: #16993f;
+            --header-grad-start: #0f7f36;
+            --header-grad-end: #1ec85a;
+            --input-bg: #ffffff;
+            --muted-bg: #eef7ef;
+            --hover-bg: #e2f5e6;
+            --panel-dark: #101612;
+            --panel-dark-inner: #0b100c;
+            --debug-text: #60ffa3;
+        }
+
+        :root[data-theme="dark"] {
+            --primary: #21c45a;
+            --primary-hover: #33db6e;
+            --success: #2ccd64;
+            --warning: #ffb142;
+            --danger: #ff6b6b;
+            --bg: #07110a;
+            --card-bg: #0d1a10;
+            --border: #1b3825;
+            --text: #d5f3df;
+            --text-secondary: #84b596;
+            --shadow: 0 8px 24px rgba(0,0,0,0.35);
+            --chip-bg: rgba(33, 196, 90, 0.16);
+            --chip-border: rgba(33, 196, 90, 0.4);
+            --chip-text: #7ef3ad;
+            --header-grad-start: #041f0e;
+            --header-grad-end: #0f6f33;
+            --input-bg: #0a170e;
+            --muted-bg: #102014;
+            --hover-bg: #14301d;
+            --panel-dark: #020504;
+            --panel-dark-inner: #000000;
+            --debug-text: #4dff96;
         }
         
         body {
@@ -45,7 +78,7 @@
         }
         
         header {
-            background: linear-gradient(135deg, #165dff 0%, #722ed1 100%);
+            background: linear-gradient(135deg, var(--header-grad-start) 0%, var(--header-grad-end) 100%);
             color: white;
             padding: 30px 20px;
             text-align: center;
@@ -110,6 +143,8 @@
             border-radius: var(--radius);
             font-size: 14px;
             font-family: inherit;
+            background: var(--input-bg);
+            color: var(--text);
         }
         
         input:focus,
@@ -137,6 +172,8 @@
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
+            margin-bottom: 0;
+            appearance: none;
         }
         
         .btn-primary {
@@ -162,10 +199,44 @@
             background: #f0f0f0;
             color: var(--text);
         }
+
+        :root[data-theme="dark"] .btn-secondary {
+            background: #173123;
+            color: #d9fbe6;
+            border: 1px solid #29553b;
+        }
+
+        :root[data-theme="dark"] .btn-secondary:hover {
+            background: #1e412e;
+            border-color: #35704d;
+        }
         
         .btn-sm {
             padding: 6px 12px;
             font-size: 12px;
+        }
+
+        .config-action-row {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: stretch;
+        }
+
+        .config-action-row .btn {
+            height: 42px;
+            min-height: 42px;
+            padding: 0 16px;
+            line-height: 1;
+            flex: 0 0 auto;
+            vertical-align: top;
+        }
+
+        .config-action-row label.btn {
+            margin-bottom: 0;
         }
         
         .btn:disabled {
@@ -216,7 +287,7 @@
             overflow-y: auto;
             white-space: pre-wrap;
             word-break: break-word;
-            background: white;
+            background: var(--input-bg);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 12px;
@@ -272,7 +343,7 @@
             position: absolute;
             width: 220px;
             max-height: 280px;
-            background: white;
+            background: var(--card-bg);
             border: 1px solid var(--primary);
             border-radius: 10px;
             display: flex;
@@ -298,7 +369,7 @@
             font-weight: 600;
             color: var(--text-secondary);
             border-bottom: 1px solid var(--border);
-            background: #f7f8fa;
+            background: var(--muted-bg);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -334,7 +405,7 @@
             object-fit: cover;
             border-radius: 6px;
             display: block;
-            background: #f0f0f0;
+            background: var(--muted-bg);
         }
         
         .mention-popup-item span {
@@ -356,7 +427,7 @@
             position: absolute;
             right: 12px;
             top: 8px;
-            background: #f0f0f0;
+            background: var(--muted-bg);
             border: 1px solid var(--border);
             color: var(--text-secondary);
             padding: 4px 10px;
@@ -389,7 +460,7 @@
         }
         
         .asset-upload-col {
-            background: #f7f8fa;
+            background: var(--muted-bg);
             border-radius: var(--radius);
             padding: 12px;
             min-width: 0;
@@ -435,7 +506,7 @@
         }
         
         .upload-zone-compact {
-            background: white;
+            background: var(--input-bg);
             border: 2px dashed var(--border);
             border-radius: var(--radius);
             padding: 12px 8px;
@@ -450,7 +521,7 @@
         .upload-zone-compact:hover,
         .upload-zone-compact.dragover {
             border-color: var(--primary);
-            background: #e8f3ff;
+            background: var(--hover-bg);
             color: var(--primary);
         }
         
@@ -471,7 +542,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            background: white;
+            background: var(--input-bg);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 6px 8px;
@@ -487,7 +558,7 @@
             border-radius: 6px;
             overflow: hidden;
             flex-shrink: 0;
-            background: #f0f0f0;
+            background: var(--muted-bg);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -544,7 +615,7 @@
         }
         
         .history-item {
-            background: #f7f8fa;
+            background: var(--muted-bg);
             border-radius: var(--radius);
             padding: 12px;
             cursor: pointer;
@@ -552,7 +623,7 @@
         }
         
         .history-item:hover {
-            background: #e8f3ff;
+            background: var(--hover-bg);
         }
         
         .history-thumb {
@@ -598,7 +669,7 @@
         }
         
         .task-record-item {
-            background: #f7f8fa;
+            background: var(--muted-bg);
             border-radius: var(--radius);
             padding: 12px;
             border-left: 3px solid var(--primary);
@@ -664,7 +735,7 @@
         }
         
         .task-record-status.pending {
-            background: #e8f3ff;
+            background: var(--hover-bg);
             color: var(--primary);
         }
         
@@ -698,7 +769,7 @@
         
         /* 播放窗口 */
         .player-window {
-            background: #1a1a1a;
+            background: var(--panel-dark);
             border-radius: var(--radius);
             overflow: hidden;
             margin-top: 16px;
@@ -725,7 +796,7 @@
         }
         
         .debug-header {
-            background: #f7f8fa;
+            background: var(--muted-bg);
             padding: 10px 16px;
             display: flex;
             justify-content: space-between;
@@ -736,8 +807,8 @@
         
         .debug-content {
             display: none;
-            background: #1a1a1a;
-            color: #00ff88;
+            background: var(--panel-dark);
+            color: var(--debug-text);
             font-family: "Consolas", "Monaco", monospace;
             font-size: 12px;
             padding: 16px;
@@ -790,8 +861,7 @@
 </head>
 <body>
     <header>
-        <h1>🎬 Seedance 多模态视频生成器</h1>
-        <p>图片+视频+音频 多模态融合生成</p>
+        <h1>🎬 seedance2.0 API视频生成器</h1>
     </header>
     
     <div class="container">
@@ -822,28 +892,36 @@
                         </div>
                         <div class="input-row">
                             <div class="form-group">
+                                <label>主题模式</label>
+                                <select id="themeMode">
+                                    <option value="system" selected>跟随系统</option>
+                                    <option value="dark">夜间（黑绿）</option>
+                                    <option value="light">日间（白绿）</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
                                 <label>Litterbox 文件过期时间</label>
                                 <select id="litterboxExpiry">
-                                    <option value="1h" selected>1 小时</option>
-                                    <option value="12h">12 小时</option>
+                                    <option value="1h">1 小时</option>
+                                    <option value="12h" selected>12 小时</option>
                                     <option value="24h">24 小时</option>
                                     <option value="72h">72 小时</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label>轮询间隔（秒）</label>
-                                <input type="number" id="pollInterval" value="15" min="10" max="300">
+                                <input type="number" id="pollInterval" value="10" min="10" max="300">
                             </div>
                             <div class="form-group">
                                 <label>任务记录保存数量</label>
-                                <input type="number" id="taskRecordLimit" value="20" min="1" max="100" onchange="saveAllConfigs()">
+                                <input type="number" id="taskRecordLimit" value="30" min="1" max="100" onchange="saveAllConfigs()">
                             </div>
                             <div class="form-group">
                                 <label>历史记录保留数量</label>
-                                <input type="number" id="historyLimitConfig" value="20" min="1" max="50" onchange="saveAllConfigs()">
+                                <input type="number" id="historyLimitConfig" value="30" min="1" max="50" onchange="saveAllConfigs()">
                             </div>
                         </div>
-                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap;">
+                        <div class="config-action-row">
                             <button class="btn btn-secondary btn-sm" onclick="exportConfig()">💾 导出配置</button>
                             <label class="btn btn-secondary btn-sm" style="cursor: pointer;">
                                 📂 导入配置
@@ -942,10 +1020,12 @@
                     <div class="input-row">
                         <div class="form-group">
                             <label>模型</label>
-                            <select id="model">
+                            <select id="model" onchange="onModelSelectChange()">
                                 <option value="doubao-seedance-2-0-260128">Seedance 2.0</option>
                                 <option value="doubao-seedance-2-0-fast-260128" selected>Seedance 2.0 Fast</option>
+                                <option value="custom">自定义模型 ID（手动输入）</option>
                             </select>
+                            <input type="text" id="modelCustom" placeholder="输入任意模型 ID，例如 doubao-seedance-2-0-fast-260128" style="margin-top: 8px; display: none;" oninput="saveAllConfigs()">
                         </div>
                         <div class="form-group">
                             <label>分辨率</label>
@@ -968,6 +1048,10 @@
                         <div class="form-group">
                             <label>时长（秒）</label>
                             <input type="number" id="duration" value="5" min="4" max="15">
+                        </div>
+                        <div class="form-group">
+                            <label>Seed (-1为随机)</label>
+                            <input type="number" id="seed" value="-1" min="-1" max="4294967295">
                         </div>
                     </div>
                     
@@ -1040,6 +1124,13 @@
             loadTaskRecords();
             initDragUploads();
             setupMentionHandlers();
+            const systemThemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+            if (systemThemeMedia && typeof systemThemeMedia.addEventListener === 'function') {
+                systemThemeMedia.addEventListener('change', () => {
+                    const mode = document.getElementById('themeMode')?.value || 'system';
+                    if (mode === 'system') applyTheme('system');
+                });
+            }
             console.log('🎉 初始化完成！');
         });
         
@@ -1049,22 +1140,26 @@
             
             if (config.apiKey) document.getElementById('apiKey').value = config.apiKey;
             if (config.baseUrl) document.getElementById('baseUrl').value = config.baseUrl;
+            if (config.themeMode) document.getElementById('themeMode').value = config.themeMode;
             if (config.litterboxExpiry) document.getElementById('litterboxExpiry').value = config.litterboxExpiry;
             if (config.pollInterval) document.getElementById('pollInterval').value = config.pollInterval;
             if (config.taskRecordLimit) document.getElementById('taskRecordLimit').value = config.taskRecordLimit;
             if (config.historyLimit) document.getElementById('historyLimitConfig').value = config.historyLimit;
-            if (config.model) document.getElementById('model').value = config.model;
+            if (config.model) setSelectedModelId(config.model);
+            else setSelectedModelId(document.getElementById('model').value);
             if (config.resolution) document.getElementById('resolution').value = config.resolution;
             if (config.ratio) document.getElementById('ratio').value = config.ratio;
             if (config.duration) document.getElementById('duration').value = config.duration;
+            if (config.seed !== undefined) document.getElementById('seed').value = config.seed;
             if (config.generateAudio !== undefined) document.getElementById('generateAudio').checked = config.generateAudio;
             
+            applyTheme(document.getElementById('themeMode')?.value || 'system');
             setupAutoSave();
             updateEstimate();
         }
         
         function setupAutoSave() {
-            const configInputs = ['apiKey', 'baseUrl', 'litterboxExpiry', 'pollInterval', 'taskRecordLimit', 'historyLimitConfig', 'model', 'resolution', 'ratio', 'duration', 'generateAudio'];
+            const configInputs = ['apiKey', 'baseUrl', 'themeMode', 'litterboxExpiry', 'pollInterval', 'taskRecordLimit', 'historyLimitConfig', 'model', 'modelCustom', 'resolution', 'ratio', 'duration', 'seed', 'generateAudio'];
             configInputs.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
@@ -1077,22 +1172,25 @@
             const config = {
                 apiKey: document.getElementById('apiKey').value,
                 baseUrl: document.getElementById('baseUrl').value,
+                themeMode: document.getElementById('themeMode').value || 'system',
                 litterboxExpiry: document.getElementById('litterboxExpiry').value,
                 pollInterval: document.getElementById('pollInterval').value,
                 taskRecordLimit: document.getElementById('taskRecordLimit').value,
                 historyLimit: document.getElementById('historyLimitConfig').value,
-                model: document.getElementById('model').value,
+                model: getSelectedModelId(),
                 resolution: document.getElementById('resolution').value,
                 ratio: document.getElementById('ratio').value,
                 duration: document.getElementById('duration').value,
+                seed: document.getElementById('seed').value,
                 generateAudio: document.getElementById('generateAudio').checked
             };
             localStorage.setItem('seedance_app_config', JSON.stringify(config));
+            applyTheme(config.themeMode);
             updateEstimate();
         }
         
         function updateEstimate() {
-            const model = document.getElementById('model')?.value;
+            const model = getSelectedModelId();
             if (!model) return;
             
             const resolution = document.getElementById('resolution').value;
@@ -1115,6 +1213,46 @@
             if (estimateEl) {
                 estimateEl.textContent = `预估: ${Math.round(tokens).toLocaleString()} Tokens (约 ${cost.toFixed(3)} 元)`;
             }
+        }
+
+        function onModelSelectChange() {
+            const modelSelect = document.getElementById('model');
+            const customInput = document.getElementById('modelCustom');
+            const isCustom = modelSelect.value === 'custom';
+            customInput.style.display = isCustom ? 'block' : 'none';
+            saveAllConfigs();
+        }
+
+        function getSelectedModelId() {
+            const modelSelect = document.getElementById('model');
+            const customInput = document.getElementById('modelCustom');
+            if (modelSelect.value === 'custom') {
+                return customInput.value.trim();
+            }
+            return modelSelect.value;
+        }
+
+        function setSelectedModelId(modelId) {
+            const modelSelect = document.getElementById('model');
+            const customInput = document.getElementById('modelCustom');
+            const hasPreset = Array.from(modelSelect.options).some(opt => opt.value === modelId && opt.value !== 'custom');
+            if (hasPreset) {
+                modelSelect.value = modelId;
+                customInput.value = '';
+                customInput.style.display = 'none';
+                return;
+            }
+            modelSelect.value = 'custom';
+            customInput.value = modelId || '';
+            customInput.style.display = 'block';
+        }
+
+        function applyTheme(mode) {
+            const root = document.documentElement;
+            const isSystemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const target = mode === 'dark' ? 'dark' : (mode === 'light' ? 'light' : (isSystemDark ? 'dark' : 'light'));
+            if (target === 'dark') root.setAttribute('data-theme', 'dark');
+            else root.removeAttribute('data-theme');
         }
         
         function exportConfig() {
@@ -1541,7 +1679,7 @@
         }
         
         async function uploadToLitterbox(file, type) {
-            const expiry = document.getElementById('litterboxExpiry').value || '1h';
+            const expiry = document.getElementById('litterboxExpiry').value || '12h';
             
             const tempId = 'upload-' + Date.now() + Math.floor(Math.random() * 1000);
             const container = document.getElementById(type + 'List');
@@ -1638,9 +1776,11 @@
             const apiKey = document.getElementById('apiKey').value.trim();
             const baseUrl = document.getElementById('baseUrl').value.trim();
             const prompt = getPromptText();
+            const modelId = getSelectedModelId();
             
             if (!apiKey) { alert('请输入 API Key'); return; }
             if (!prompt) { alert('请输入提示词'); return; }
+            if (!modelId) { alert('请选择模型或输入自定义模型 ID'); return; }
 
             const submitBtn = document.querySelector('button[onclick="submitTask()"]');
             const originalBtnText = submitBtn.innerHTML;
@@ -1659,12 +1799,13 @@
             });
             
             const body = {
-                model: document.getElementById('model').value,
+                model: modelId,
                 content: content,
                 generate_audio: document.getElementById('generateAudio').checked,
                 resolution: document.getElementById('resolution').value,
                 ratio: document.getElementById('ratio').value,
                 duration: parseInt(document.getElementById('duration').value),
+                seed: isNaN(parseInt(document.getElementById('seed').value)) ? -1 : parseInt(document.getElementById('seed').value),
                 watermark: false
             };
             
@@ -1698,10 +1839,11 @@
                     promptHtml: promptEditor.innerHTML,
                     assets: JSON.parse(JSON.stringify(assets)),
                     params: {
-                        model: document.getElementById('model').value,
+                        model: modelId,
                         resolution: document.getElementById('resolution').value,
                         ratio: document.getElementById('ratio').value,
                         duration: document.getElementById('duration').value,
+                        seed: document.getElementById('seed').value,
                         generateAudio: document.getElementById('generateAudio').checked
                     },
                     time: new Date().toISOString(),
@@ -1727,7 +1869,7 @@
         function startPollingForTask(taskId) {
             const apiKey = document.getElementById('apiKey').value.trim();
             const baseUrl = document.getElementById('baseUrl').value.trim();
-            const interval = parseInt(document.getElementById('pollInterval').value) * 1000 || 30000;
+            const interval = parseInt(document.getElementById('pollInterval').value) * 1000 || 10000;
             
             const doPoll = async () => {
                 const task = activeTasks.get(taskId);
@@ -1888,7 +2030,7 @@
         }
         
         function trimTaskRecords() {
-            const limit = parseInt(document.getElementById('taskRecordLimit').value) || 20;
+            const limit = parseInt(document.getElementById('taskRecordLimit').value) || 30;
             const tasks = Array.from(activeTasks.entries());
             if (tasks.length <= limit) return;
             // 删除最旧的已完成/失败任务
@@ -1927,7 +2069,7 @@
         // ==================== 历史记录（底部） ====================
         function addToHistory(record) {
             let history = JSON.parse(localStorage.getItem('seedance_history') || '[]');
-            const limit = parseInt(document.getElementById('historyLimitConfig').value) || 10;
+            const limit = parseInt(document.getElementById('historyLimitConfig').value) || 30;
             
             history.unshift(record);
             if (history.length > limit) history = history.slice(0, limit);
@@ -1981,10 +2123,11 @@
             if (!item) return;
             
             if (item.params) {
-                if (item.params.model) document.getElementById('model').value = item.params.model;
+                if (item.params.model) setSelectedModelId(item.params.model);
                 if (item.params.resolution) document.getElementById('resolution').value = item.params.resolution;
                 if (item.params.ratio) document.getElementById('ratio').value = item.params.ratio;
                 if (item.params.duration) document.getElementById('duration').value = item.params.duration;
+                if (item.params.seed !== undefined) document.getElementById('seed').value = item.params.seed;
                 if (item.params.generateAudio !== undefined) document.getElementById('generateAudio').checked = item.params.generateAudio;
             }
             
