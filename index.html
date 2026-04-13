@@ -711,11 +711,20 @@
         /* 富文本提示词编辑器 */
         .prompt-editor-wrapper {
             position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .prompt-editor-toolbar {
+            display: flex;
+            justify-content: flex-end;
         }
         
         .prompt-editor {
             min-height: 120px;
-            max-height: 200px;
+            max-height: 420px;
+            height: 160px;
             overflow-y: auto;
             white-space: pre-wrap;
             word-break: break-word;
@@ -726,6 +735,7 @@
             color: var(--text);
             transition: all 0.3s ease;
             cursor: text;
+            resize: vertical;
         }
         
         .prompt-editor:focus-within {
@@ -856,9 +866,6 @@
         
         /* @ 按钮 */
         .mention-btn {
-            position: absolute;
-            right: 12px;
-            top: 8px;
             background: var(--muted-bg);
             border: 1px solid var(--border);
             color: var(--text-secondary);
@@ -867,7 +874,6 @@
             font-size: 13px;
             cursor: pointer;
             transition: all 0.2s;
-            z-index: 10;
             font-weight: 600;
         }
         
@@ -1468,10 +1474,12 @@
                     <div class="form-group">
                         <label>提示词 <span style="color: var(--danger);">*</span></label>
                         <div class="prompt-editor-wrapper">
+                            <div class="prompt-editor-toolbar">
+                                <button class="mention-btn" id="mentionBtn" onclick="toggleMentionPopup()">@ 引用素材</button>
+                            </div>
                             <div class="prompt-editor" id="promptEditor" contenteditable="true" 
                                  oninput="onPromptInput()" onkeydown="onPromptKeyDown(event)"
                                  onclick="saveEditorRange()"></div>
-                            <button class="mention-btn" id="mentionBtn" onclick="toggleMentionPopup()">@</button>
                             
                             <!-- 引用选择弹出面板 -->
                             <div class="mention-popup" id="mentionPopup">
@@ -1663,6 +1671,7 @@
             loadTaskRecords();
             initDragUploads();
             setupMentionHandlers();
+            setupPromptEditorResizePersistence();
             const systemThemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
             if (systemThemeMedia && typeof systemThemeMedia.addEventListener === 'function') {
                 systemThemeMedia.addEventListener('change', () => {
@@ -1693,6 +1702,7 @@
             if (config.seed !== undefined) document.getElementById('seed').value = config.seed;
             if (config.generateAudio !== undefined) document.getElementById('generateAudio').checked = config.generateAudio;
             if (config.autoDownload) document.getElementById('autoDownload').value = config.autoDownload;
+            if (config.promptEditorHeight) promptEditor.style.height = config.promptEditorHeight;
 
             applyTheme();
             setupAutoSave();
@@ -1731,11 +1741,31 @@
                 duration: document.getElementById('duration').value,
                 seed: document.getElementById('seed').value,
                 generateAudio: document.getElementById('generateAudio').checked,
-                autoDownload: document.getElementById('autoDownload').value
+                autoDownload: document.getElementById('autoDownload').value,
+                promptEditorHeight: `${Math.round(promptEditor.getBoundingClientRect().height)}px`
             };
             localStorage.setItem('seedance_app_config', JSON.stringify(config));
             applyTheme();
             updateEstimate();
+        }
+
+        function setupPromptEditorResizePersistence() {
+            if (window.promptEditorResizeObserver) {
+                window.promptEditorResizeObserver.disconnect();
+            }
+
+            let lastHeight = Math.round(promptEditor.getBoundingClientRect().height);
+            window.promptEditorResizeObserver = new ResizeObserver(() => {
+                const currentHeight = Math.round(promptEditor.getBoundingClientRect().height);
+                if (!currentHeight || currentHeight === lastHeight) return;
+                lastHeight = currentHeight;
+                saveAllConfigs();
+                if (isMentionPopupOpen) {
+                    positionPopup();
+                }
+            });
+
+            window.promptEditorResizeObserver.observe(promptEditor);
         }
         
         function updateEstimate() {
@@ -1996,9 +2026,8 @@
         }
         
         function positionPopup() {
-            const editorRect = promptEditor.getBoundingClientRect();
             mentionPopup.style.left = '0';
-            mentionPopup.style.top = (promptEditor.offsetHeight + 5) + 'px';
+            mentionPopup.style.top = (promptEditor.offsetTop + promptEditor.offsetHeight + 5) + 'px';
             mentionPopup.style.width = '220px';
         }
         
