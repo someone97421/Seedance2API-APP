@@ -979,6 +979,17 @@
             border-radius: var(--radius);
             padding: 6px 8px;
         }
+
+        .media-item.clickable {
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s, transform 0.2s;
+        }
+
+        .media-item.clickable:hover {
+            background: var(--hover-bg);
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
         
         .media-item.success {
             border-color: var(--success);
@@ -1201,22 +1212,86 @@
         
         /* 播放窗口 */
         .player-window {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .player-window.active {
+            display: flex !important;
+        }
+
+        .player-dialog {
+            width: min(880px, 100%);
+            max-height: calc(100vh - 48px);
             background: var(--panel-dark);
             border-radius: var(--radius);
             overflow: hidden;
-            margin-top: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
         }
-        
-        .player-window video {
+
+        .player-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            color: white;
+            background: rgba(255, 255, 255, 0.04);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .player-title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .player-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.12);
+            color: white;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .player-media {
+            padding: 16px;
+        }
+
+        .player-window video,
+        .player-window img,
+        .player-window audio {
             width: 100%;
-            max-height: 400px;
+            max-height: 65vh;
             display: block;
+        }
+
+        .player-window img {
+            object-fit: contain;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .player-window audio {
+            max-height: none;
         }
         
         .player-info {
             padding: 12px;
             color: white;
             font-size: 13px;
+        }
+
+        .player-actions {
+            margin-top: 8px;
         }
         
         /* 调试窗 */
@@ -1519,14 +1594,26 @@
                         <span id="costEstimate" style="font-size: 11px; opacity: 0.8; font-weight: normal; margin-top: 2px;">预估: 0 Tokens (约 0.000 元)</span>
                     </button>
                     
-                    <!-- 播放窗口 -->
-                    <div class="player-window" id="playerWindow" style="display: none;">
-                        <video id="resultVideo" controls></video>
-                        <div class="player-info">
-                            <div id="playerInfoText"></div>
-                            <a id="downloadLink" href="#" target="_blank" class="btn btn-success btn-sm" style="margin-top: 8px;">
-                                ⬇️ 下载视频
-                            </a>
+                    <!-- 预览窗口 -->
+                    <div class="player-window" id="playerWindow" style="display: none;" onclick="handlePreviewBackdropClick(event)">
+                        <div class="player-dialog">
+                            <div class="player-header">
+                                <div class="player-title" id="playerTitleText">素材预览</div>
+                                <button class="player-close" onclick="closePreviewWindow()" aria-label="关闭预览">×</button>
+                            </div>
+                            <div class="player-media">
+                                <img id="previewImage" alt="预览图片" style="display: none;">
+                                <video id="resultVideo" controls style="display: none;"></video>
+                                <audio id="previewAudio" controls style="display: none;"></audio>
+                            </div>
+                            <div class="player-info">
+                                <div id="playerInfoText"></div>
+                                <div class="player-actions">
+                                    <a id="downloadLink" href="#" target="_blank" class="btn btn-success btn-sm">
+                                        ⬇️ 下载素材
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -1611,6 +1698,12 @@
             setupAutoSave();
             updateEstimate();
         }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closePreviewWindow();
+            }
+        });
         
         function setupAutoSave() {
             const configInputs = ['apiKey', 'baseUrl', 'themeMode', 'colorScheme', 'litterboxExpiry', 'pollInterval', 'taskRecordLimit', 'historyLimitConfig', 'model', 'modelCustom', 'resolution', 'ratio', 'duration', 'seed', 'generateAudio'];
@@ -2014,6 +2107,79 @@
             if (type === 'video') updateEstimate();
             return asset;
         }
+
+        function getAssetById(type, id) {
+            return assets[type + 's'].find(asset => String(asset.id) === String(id));
+        }
+
+        function openPreviewWindow(mediaType, url, infoText, titleText) {
+            const playerWindow = document.getElementById('playerWindow');
+            const previewImage = document.getElementById('previewImage');
+            const resultVideo = document.getElementById('resultVideo');
+            const previewAudio = document.getElementById('previewAudio');
+            const playerTitleText = document.getElementById('playerTitleText');
+            const playerInfoText = document.getElementById('playerInfoText');
+            const downloadLink = document.getElementById('downloadLink');
+
+            previewImage.style.display = 'none';
+            previewImage.removeAttribute('src');
+
+            resultVideo.pause();
+            resultVideo.style.display = 'none';
+            resultVideo.removeAttribute('src');
+            resultVideo.load();
+
+            previewAudio.pause();
+            previewAudio.style.display = 'none';
+            previewAudio.removeAttribute('src');
+            previewAudio.load();
+
+            if (mediaType === 'image') {
+                previewImage.src = url;
+                previewImage.style.display = 'block';
+            } else if (mediaType === 'video') {
+                resultVideo.src = url;
+                resultVideo.style.display = 'block';
+            } else if (mediaType === 'audio') {
+                previewAudio.src = url;
+                previewAudio.style.display = 'block';
+            }
+
+            playerTitleText.textContent = titleText || '素材预览';
+            playerInfoText.textContent = infoText || '';
+            downloadLink.href = url;
+            downloadLink.textContent = mediaType === 'video' ? '⬇️ 下载视频' : mediaType === 'audio' ? '⬇️ 下载音频' : '⬇️ 下载图片';
+
+            playerWindow.style.display = 'flex';
+            playerWindow.classList.add('active');
+        }
+
+        function closePreviewWindow() {
+            const playerWindow = document.getElementById('playerWindow');
+            const resultVideo = document.getElementById('resultVideo');
+            const previewAudio = document.getElementById('previewAudio');
+
+            resultVideo.pause();
+            previewAudio.pause();
+            playerWindow.classList.remove('active');
+            playerWindow.style.display = 'none';
+        }
+
+        function handlePreviewBackdropClick(event) {
+            if (event.target === document.getElementById('playerWindow')) {
+                closePreviewWindow();
+            }
+        }
+
+        function previewAsset(type, id) {
+            const asset = getAssetById(type, id);
+            if (!asset || !asset.url) return;
+
+            const typeLabel = type === 'image' ? '图片' : type === 'video' ? '视频' : '音频';
+            const refTag = type === 'image' ? 'img' : type === 'video' ? 'video' : 'audio';
+            const infoText = `${typeLabel}: ${asset.name}${asset.isLocal ? ' · 本地预览' : ` · @${refTag}${asset.index}`}`;
+            openPreviewWindow(type, asset.url, infoText, `${typeLabel}预览`);
+        }
         
         function removeAsset(type, id) {
             const key = type + 's';
@@ -2060,7 +2226,7 @@
                 container.innerHTML = list.map(asset => {
                     const tagName = type === 'image' ? 'img' : type === 'video' ? 'video' : 'audio';
                     return `
-                        <div class="media-item ${asset.isLocal ? '' : 'success'}">
+                        <div class="media-item clickable ${asset.isLocal ? '' : 'success'}" onclick="previewAsset('${type}', ${asset.id})" title="点击预览">
                             <div class="media-preview">
                                 ${type === 'image' && !asset.isLocal ? `<img src="${asset.url}" alt="">` : 
                                   type === 'image' ? '🖼️' :
@@ -2070,7 +2236,7 @@
                                 <div class="media-name">${asset.name}</div>
                                 <div class="media-status">${asset.isLocal ? '本地预览' : `@${tagName}${asset.index}`}</div>
                             </div>
-                            <button class="btn-remove" onclick="removeAsset('${type}', ${asset.id})">×</button>
+                            <button class="btn-remove" onclick="event.stopPropagation(); removeAsset('${type}', ${asset.id})">×</button>
                         </div>
                     `;
                 }).join('');
@@ -2299,6 +2465,7 @@
                     displayTimer: null,
                     requestLog: requestLog,
                     responseLog: responseLogText,
+                    isDebugOpen: false,
                     prompt: prompt,
                     promptHtml: promptEditor.innerHTML,
                     assets: JSON.parse(JSON.stringify(assets)),
@@ -2348,7 +2515,10 @@
                     });
                     const result = await response.json();
                     
-                    task.responseLog += `\n\n[${new Date().toLocaleTimeString()}] Poll:\n${JSON.stringify(result, null, 2)}`;
+                    const pollLogEntry = `\n\n[${new Date().toLocaleTimeString()}] Poll:\n${JSON.stringify(result, null, 2)}`;
+                    task.responseLog += pollLogEntry;
+                    appendTaskResponseLog(taskId, pollLogEntry);
+                    saveTaskRecords();
                     
                     if (result.status === 'succeeded') {
                         clearInterval(task.timer);
@@ -2368,12 +2538,11 @@
                         const startTime = new Date(task.startTime);
                         task.duration = Math.round((endTime - startTime) / 1000);
                         task.status = 'failed';
-                        renderTaskRecords();
+                        updateTaskRecordElement(taskId);
                         saveTaskRecords();
                     }
-                    
-                    // Only update UI if we are in debug view? No, renderTaskRecords updates everything
-                    renderTaskRecords();
+
+                    updateTaskRecordMeta(taskId);
                 } catch (error) {
                     console.error(`轮询任务 ${taskId} 失败:`, error);
                 }
@@ -2386,7 +2555,7 @@
                 // 启动显示计时器，每秒更新UI
                 task.displayTimer = setInterval(() => {
                     if (task.status === 'running') {
-                        renderTaskRecords();
+                        updateTaskDuration(taskId);
                     }
                 }, 1000);
             }
@@ -2427,11 +2596,7 @@
             }
 
             if (videoUrl) {
-                document.getElementById('playerWindow').style.display = 'block';
-                document.getElementById('resultVideo').src = videoUrl;
-                document.getElementById('downloadLink').href = videoUrl;
-                document.getElementById('playerInfoText').textContent = `任务 ID: ${taskId}`;
-                document.getElementById('playerWindow').scrollIntoView({ behavior: 'smooth' });
+                openPreviewWindow('video', videoUrl, `任务 ID: ${taskId}`, '生成结果预览');
                 
                 addToHistory({
                     id: taskId,
@@ -2451,8 +2616,7 @@
                 console.warn('任务完成但找不到视频链接:', result);
                 task.responseLog += `\n\n[报错] 找不到视频连接，完整的响应为: ${JSON.stringify(result)}`;
             }
-
-            renderTaskRecords();
+            updateTaskRecordElement(taskId);
             saveTaskRecords();
         }
 
@@ -2473,70 +2637,143 @@
         }
         
         // ==================== 任务记录面板（右侧栏） ====================
+        function getTaskStatusText(status) {
+            const statusText = { running: '运行中', succeeded: '已完成', failed: '已失败', pending: '排队中' };
+            return statusText[status] || status;
+        }
+
+        function getTaskStatusEmoji(status) {
+            const statusEmoji = { running: '⏳', succeeded: '✅', failed: '❌', pending: '🕐' };
+            return statusEmoji[status] || '🕐';
+        }
+
+        function getTaskDurationText(task) {
+            if (task.duration) {
+                return formatDuration(task.duration);
+            }
+            if (task.startTime && task.status === 'running') {
+                const elapsed = Math.round((new Date() - new Date(task.startTime)) / 1000);
+                return formatDuration(elapsed);
+            }
+            return '';
+        }
+
+        function getTaskStatusDisplay(task) {
+            const st = task.status || 'pending';
+            const durationText = getTaskDurationText(task);
+            return `${getTaskStatusEmoji(st)} ${getTaskStatusText(st)}${durationText ? ' · ' + durationText : ''}`;
+        }
+
+        function buildTaskRecordHtml(task) {
+            const st = task.status || 'pending';
+            return `
+                <div class="task-record-item status-${st}" id="task-record-${task.id}" data-task-id="${task.id}">
+                    <div class="task-record-header">
+                        <span class="task-record-id" title="${task.id}">${task.id}</span>
+                        <span class="task-record-status ${st}" id="task-status-${task.id}">${getTaskStatusDisplay(task)}</span>
+                    </div>
+                    <div class="task-record-time">${new Date(task.time).toLocaleString()}</div>
+                    <div class="task-record-actions" style="margin-bottom: 8px;">
+                        ${task.videoUrl ? `<button class="btn btn-primary btn-sm" onclick="previewTaskVideo('${task.id}')">▶️ 预览</button>` : ''}
+                        <button class="btn btn-secondary btn-sm" onclick="toggleTaskDebug('${task.id}')" id="task-debug-toggle-${task.id}">${task.isDebugOpen ? '📂 收起调试' : '🐛 调试'}</button>
+                        <button class="btn btn-danger btn-sm" onclick="removeTaskRecord('${task.id}')">🗑️</button>
+                    </div>
+                    <div class="task-debug-content" id="debug-${task.id}" style="display: ${task.isDebugOpen ? 'block' : 'none'}; background: #1a1a1a; color: #00ff88; font-family: monospace; font-size: 11px; padding: 10px; border-radius: 4px; max-height: 300px; overflow-y: auto;">
+                        <div style="color: #74c0fc; margin-bottom: 4px;">请求体:</div>
+                        <div style="background: #0d0d0d; padding: 8px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin-bottom: 8px;">${escapeHtml(task.requestLog || '')}</div>
+                        <div style="color: #74c0fc; margin-bottom: 4px;">响应日志:</div>
+                        <div id="debug-response-${task.id}" style="background: #0d0d0d; padding: 8px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">${escapeHtml(task.responseLog || '')}</div>
+                    </div>
+                </div>
+            `;
+        }
+
         function renderTaskRecords() {
             const container = document.getElementById('taskRecordList');
             const tasks = Array.from(activeTasks.values()).reverse();
-            
+
             if (tasks.length === 0) {
                 container.innerHTML = '<div class="empty-state">暂无任务</div>';
                 return;
             }
-            
-            const statusText = { running: '运行中', succeeded: '已完成', failed: '已失败', pending: '排队中' };
-            const statusEmoji = { running: '⏳', succeeded: '✅', failed: '❌', pending: '🕐' };
 
-            container.innerHTML = tasks.map(task => {
-                const st = task.status || 'pending';
+            container.innerHTML = tasks.map(buildTaskRecordHtml).join('');
+        }
 
-                // 计算运行时间
-                let durationText = '';
-                if (task.duration) {
-                    // 已完成/失败，显示总耗时
-                    durationText = formatDuration(task.duration);
-                } else if (task.startTime && task.status === 'running') {
-                    // 运行中，实时计算
-                    const elapsed = Math.round((new Date() - new Date(task.startTime)) / 1000);
-                    durationText = formatDuration(elapsed);
+        function updateTaskRecordMeta(taskId) {
+            const task = activeTasks.get(taskId);
+            const row = document.getElementById(`task-record-${taskId}`);
+            if (!task || !row) return;
+
+            const st = task.status || 'pending';
+            row.className = `task-record-item status-${st}`;
+
+            const statusEl = document.getElementById(`task-status-${taskId}`);
+            if (statusEl) {
+                statusEl.className = `task-record-status ${st}`;
+                statusEl.textContent = getTaskStatusDisplay(task);
+            }
+        }
+
+        function updateTaskDuration(taskId) {
+            updateTaskRecordMeta(taskId);
+        }
+
+        function updateTaskRecordElement(taskId) {
+            const task = activeTasks.get(taskId);
+            const current = document.getElementById(`task-record-${taskId}`);
+            if (!task || !current) {
+                renderTaskRecords();
+                return;
+            }
+
+            const debugEl = document.getElementById(`debug-${taskId}`);
+            const previousScrollTop = debugEl ? debugEl.scrollTop : 0;
+
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = buildTaskRecordHtml(task).trim();
+            const next = wrapper.firstElementChild;
+            current.replaceWith(next);
+
+            const nextDebugEl = document.getElementById(`debug-${taskId}`);
+            if (nextDebugEl) {
+                nextDebugEl.scrollTop = previousScrollTop;
+            }
+        }
+
+        function appendTaskResponseLog(taskId, text) {
+            const responseEl = document.getElementById(`debug-response-${taskId}`);
+            const debugEl = document.getElementById(`debug-${taskId}`);
+            if (!responseEl || !text) return;
+
+            const isNearBottom = debugEl
+                ? debugEl.scrollTop + debugEl.clientHeight >= debugEl.scrollHeight - 16
+                : false;
+            const previousScrollTop = debugEl ? debugEl.scrollTop : 0;
+            responseEl.insertAdjacentHTML('beforeend', escapeHtml(text));
+
+            if (debugEl) {
+                if (isNearBottom) {
+                    debugEl.scrollTop = debugEl.scrollHeight;
+                } else {
+                    debugEl.scrollTop = previousScrollTop;
                 }
-
-                return `
-                    <div class="task-record-item status-${st}">
-                        <div class="task-record-header">
-                            <span class="task-record-id" title="${task.id}">${task.id}</span>
-                            <span class="task-record-status ${st}">${statusEmoji[st]} ${statusText[st] || st}${durationText ? ' · ' + durationText : ''}</span>
-                        </div>
-                        <div class="task-record-time">${new Date(task.time).toLocaleString()}</div>
-                        <div class="task-record-actions" style="margin-bottom: 8px;">
-                            ${task.videoUrl ? `<button class="btn btn-primary btn-sm" onclick="previewTaskVideo('${task.id}')">▶️ 预览</button>` : ''}
-                            <button class="btn btn-secondary btn-sm" onclick="toggleTaskDebug('${task.id}')">🐛 调试</button>
-                            <button class="btn btn-danger btn-sm" onclick="removeTaskRecord('${task.id}')">🗑️</button>
-                        </div>
-                        <div class="task-debug-content" id="debug-${task.id}" style="display: none; background: #1a1a1a; color: #00ff88; font-family: monospace; font-size: 11px; padding: 10px; border-radius: 4px; max-height: 300px; overflow-y: auto;">
-                            <div style="color: #74c0fc; margin-bottom: 4px;">请求体:</div>
-                            <div style="background: #0d0d0d; padding: 8px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin-bottom: 8px;">${escapeHtml(task.requestLog || '')}</div>
-                            <div style="color: #74c0fc; margin-bottom: 4px;">响应日志:</div>
-                            <div style="background: #0d0d0d; padding: 8px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">${escapeHtml(task.responseLog || '')}</div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            }
         }
         
         function toggleTaskDebug(taskId) {
-            const el = document.getElementById(`debug-${taskId}`);
-            if (el) {
-                el.style.display = el.style.display === 'none' ? 'block' : 'none';
-            }
+            const task = activeTasks.get(taskId);
+            if (!task) return;
+
+            task.isDebugOpen = !task.isDebugOpen;
+            updateTaskRecordElement(taskId);
+            saveTaskRecords();
         }
         
         function previewTaskVideo(taskId) {
             const task = activeTasks.get(taskId);
             if (task && task.videoUrl) {
-                document.getElementById('playerWindow').style.display = 'block';
-                document.getElementById('resultVideo').src = task.videoUrl;
-                document.getElementById('downloadLink').href = task.videoUrl;
-                document.getElementById('playerInfoText').textContent = `任务 ID: ${taskId}`;
-                document.getElementById('playerWindow').scrollIntoView({ behavior: 'smooth' });
+                openPreviewWindow('video', task.videoUrl, `任务 ID: ${taskId}`, '任务结果预览');
             }
         }
         
@@ -2602,6 +2839,8 @@
             const records = JSON.parse(localStorage.getItem('seedance_task_records') || '[]');
             records.forEach(record => {
                 record.timer = null;
+                record.displayTimer = null;
+                record.isDebugOpen = Boolean(record.isDebugOpen);
                 activeTasks.set(record.id, record);
                 // 恢复运行中任务的轮询
                 if (record.status === 'running') {
@@ -2657,11 +2896,7 @@
             const history = JSON.parse(localStorage.getItem('seedance_history') || '[]');
             const item = history[index];
             if (item && item.videoUrl) {
-                document.getElementById('playerWindow').style.display = 'block';
-                document.getElementById('resultVideo').src = item.videoUrl;
-                document.getElementById('downloadLink').href = item.videoUrl;
-                document.getElementById('playerInfoText').textContent = `任务 ID: ${item.id || 'N/A'}`;
-                document.getElementById('playerWindow').scrollIntoView({ behavior: 'smooth' });
+                openPreviewWindow('video', item.videoUrl, `任务 ID: ${item.id || 'N/A'}`, '历史结果预览');
             }
         }
         
