@@ -926,6 +926,31 @@
             gap: 4px;
             margin-bottom: 8px;
         }
+
+        .asset-id-row {
+            display: grid;
+            grid-template-columns: 140px minmax(0, 1fr) auto;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .asset-id-row select,
+        .asset-id-row input,
+        .asset-id-row button {
+            min-width: 0;
+        }
+
+        .asset-id-hint {
+            margin-bottom: 12px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .asset-id-row {
+                grid-template-columns: 1fr;
+            }
+        }
         
         .url-input-compact input {
             flex: 1;
@@ -1426,7 +1451,7 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Litterbox 文件过期时间</label>
+                                <label>Litterbox 素材过期时间</label>
                                 <select id="litterboxExpiry">
                                     <option value="1h">1 小时</option>
                                     <option value="12h" selected>12 小时</option>
@@ -1497,6 +1522,16 @@
                     <!-- 参考素材上传 - 三列布局 -->
                     <div class="form-group">
                         <label>📎 参考素材</label>
+                        <div class="asset-id-row">
+                            <select id="assetTypeSelect">
+                                <option value="image">Image 素材</option>
+                                <option value="video">Video 素材</option>
+                                <option value="audio">Audio 素材</option>
+                            </select>
+                            <input type="text" id="assetIdInput" placeholder="输入素材库 ASSET_ID，例如 asset-2026xxxxxxxxx-xxxxx" onkeypress="if(event.key==='Enter')addAssetFromAssetId()">
+                            <button type="button" onclick="addAssetFromAssetId()">添加 ASSET_ID</button>
+                        </div>
+                        <div class="asset-id-hint">会按文档格式自动转换为 <code>asset://&lt;asset_id&gt;</code>，并根据素材类型加入对应素材列表。</div>
                         <div class="assets-upload-row">
                             <!-- 图片 -->
                             <div class="asset-upload-col">
@@ -1558,9 +1593,12 @@
                             <select id="model" onchange="onModelSelectChange()">
                                 <option value="doubao-seedance-2-0-260128">Seedance 2.0</option>
                                 <option value="doubao-seedance-2-0-fast-260128" selected>Seedance 2.0 Fast</option>
-                                <option value="custom">自定义模型 ID（手动输入）</option>
+                                <option value="__custom__">自定义 Endpoint / 模型名</option>
                             </select>
-                            <input type="text" id="modelCustom" placeholder="输入任意模型 ID，例如 doubao-seedance-2-0-fast-260128" style="margin-top: 8px; display: none;" oninput="saveAllConfigs()">
+                        </div>
+                        <div class="form-group" id="customModelGroup" style="display: none;">
+                            <label>自定义模型名</label>
+                            <input type="text" id="customModel" placeholder="例如：your-endpoint-or-model-name">
                         </div>
                         <div class="form-group">
                             <label>分辨率</label>
@@ -1694,6 +1732,7 @@
             if (config.pollInterval) document.getElementById('pollInterval').value = config.pollInterval;
             if (config.taskRecordLimit) document.getElementById('taskRecordLimit').value = config.taskRecordLimit;
             if (config.historyLimit) document.getElementById('historyLimitConfig').value = config.historyLimit;
+            if (config.customModel) document.getElementById('customModel').value = config.customModel;
             if (config.model) setSelectedModelId(config.model);
             else setSelectedModelId(document.getElementById('model').value);
             if (config.resolution) document.getElementById('resolution').value = config.resolution;
@@ -1716,11 +1755,14 @@
         });
         
         function setupAutoSave() {
-            const configInputs = ['apiKey', 'baseUrl', 'themeMode', 'colorScheme', 'litterboxExpiry', 'pollInterval', 'taskRecordLimit', 'historyLimitConfig', 'model', 'modelCustom', 'resolution', 'ratio', 'duration', 'seed', 'generateAudio'];
+            const configInputs = ['apiKey', 'baseUrl', 'themeMode', 'colorScheme', 'litterboxExpiry', 'pollInterval', 'taskRecordLimit', 'historyLimitConfig', 'model', 'customModel', 'resolution', 'ratio', 'duration', 'seed', 'generateAudio'];
             configInputs.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
                     el.addEventListener('change', saveAllConfigs);
+                    if (id === 'customModel') {
+                        el.addEventListener('input', saveAllConfigs);
+                    }
                 }
             });
         }
@@ -1736,6 +1778,7 @@
                 taskRecordLimit: document.getElementById('taskRecordLimit').value,
                 historyLimit: document.getElementById('historyLimitConfig').value,
                 model: getSelectedModelId(),
+                customModel: document.getElementById('customModel').value,
                 resolution: document.getElementById('resolution').value,
                 ratio: document.getElementById('ratio').value,
                 duration: document.getElementById('duration').value,
@@ -1747,6 +1790,19 @@
             localStorage.setItem('seedance_app_config', JSON.stringify(config));
             applyTheme();
             updateEstimate();
+        }
+
+        function getEffectiveBaseUrl() {
+            const rawBaseUrl = (document.getElementById('baseUrl').value || '').trim();
+            const baseUrl = rawBaseUrl || 'https://ark.cn-beijing.volces.com/api/v3';
+            return baseUrl.replace(/\/+$/, '');
+        }
+
+        function formatFetchError(error, targetUrl) {
+            if (error && typeof error.message === 'string' && error.message.includes('Failed to fetch')) {
+                return `无法连接到 ${targetUrl}。如果你在用服务版，请先运行 python app.py 并通过 http://127.0.0.1:8765 打开页面；如果你是浏览器直连外部 API，这通常是跨域或网络拦截。`;
+            }
+            return error?.message || '未知错误';
         }
 
         function setupPromptEditorResizePersistence() {
@@ -1795,35 +1851,40 @@
         }
 
         function onModelSelectChange() {
-            const modelSelect = document.getElementById('model');
-            const customInput = document.getElementById('modelCustom');
-            const isCustom = modelSelect.value === 'custom';
-            customInput.style.display = isCustom ? 'block' : 'none';
+            toggleCustomModelInput();
             saveAllConfigs();
         }
 
         function getSelectedModelId() {
-            const modelSelect = document.getElementById('model');
-            const customInput = document.getElementById('modelCustom');
-            if (modelSelect.value === 'custom') {
-                return customInput.value.trim();
+            const selectedValue = document.getElementById('model').value;
+            if (selectedValue === '__custom__') {
+                return (document.getElementById('customModel').value || '').trim();
             }
-            return modelSelect.value;
+            return selectedValue;
         }
 
         function setSelectedModelId(modelId) {
             const modelSelect = document.getElementById('model');
-            const customInput = document.getElementById('modelCustom');
-            const hasPreset = Array.from(modelSelect.options).some(opt => opt.value === modelId && opt.value !== 'custom');
+            const legacyModelMap = {
+                'ep-20260414143139-r49fk': 'doubao-seedance-2-0-260128',
+                'ep-20260414143428-dl6kf': 'doubao-seedance-2-0-fast-260128'
+            };
+            const normalizedModelId = legacyModelMap[modelId] || modelId;
+            const hasPreset = Array.from(modelSelect.options).some(opt => opt.value === normalizedModelId);
             if (hasPreset) {
-                modelSelect.value = modelId;
-                customInput.value = '';
-                customInput.style.display = 'none';
-                return;
+                modelSelect.value = normalizedModelId;
+            } else if (normalizedModelId) {
+                modelSelect.value = '__custom__';
+                document.getElementById('customModel').value = normalizedModelId;
+            } else {
+                modelSelect.value = 'doubao-seedance-2-0-fast-260128';
             }
-            modelSelect.value = 'custom';
-            customInput.value = modelId || '';
-            customInput.style.display = 'block';
+            toggleCustomModelInput();
+        }
+
+        function toggleCustomModelInput() {
+            const isCustom = document.getElementById('model').value === '__custom__';
+            document.getElementById('customModelGroup').style.display = isCustom ? 'block' : 'none';
         }
 
         function applyTheme() {
@@ -1996,7 +2057,7 @@
             } else {
                 listEl.innerHTML = allAssets.map((asset, index) => {
                     const iconHtml = asset.type === 'image' 
-                        ? `<img src="${asset.url}" alt="">`
+                        ? (isAssetReferenceUrl(asset.url) ? '🖼️' : `<img src="${asset.url}" alt="">`)
                         : asset.type === 'video' ? '🎬' : '🎵';
                     const tagName = asset.type === 'image' ? 'img' : asset.type === 'video' ? 'video' : 'audio';
                     
@@ -2120,16 +2181,30 @@
         }
         
         // ==================== 素材管理 ====================
+        function isAssetReferenceUrl(url) {
+            return /^asset:\/\//i.test((url || '').trim());
+        }
+
+        function normalizeAssetReference(rawValue) {
+            const value = (rawValue || '').trim();
+            if (!value) return '';
+            if (/^asset:\/\//i.test(value)) return value;
+            return `asset://${value.replace(/^asset:\s*\/\//i, '').replace(/^\/+/, '')}`;
+        }
+
         function addAsset(type, url, name, isLocal = false) {
             const list = assets[type + 's'];
             const index = list.length + 1;
+            const normalizedUrl = typeof url === 'string' ? url.trim() : url;
+            const safeName = (name || '').trim() || normalizedUrl.split('/').pop() || `${type}-${index}`;
             const asset = {
                 id: Date.now() + Math.random(),
                 type,
-                url,
-                name: name.replace(/\.[^/.]+$/, ''),
+                url: normalizedUrl,
+                name: safeName.replace(/\.[^/.]+$/, ''),
                 index,
-                isLocal
+                isLocal,
+                sourceKind: isAssetReferenceUrl(normalizedUrl) ? 'asset_id' : (isLocal ? 'local' : 'url')
             };
             list.push(asset);
             updateAssetsList();
@@ -2203,6 +2278,10 @@
         function previewAsset(type, id) {
             const asset = getAssetById(type, id);
             if (!asset || !asset.url) return;
+            if (isAssetReferenceUrl(asset.url)) {
+                alert('素材库 ASSET_ID 仅用于接口引用，当前页面无法直接预览，请在提交请求时使用。');
+                return;
+            }
 
             const typeLabel = type === 'image' ? '图片' : type === 'video' ? '视频' : '音频';
             const refTag = type === 'image' ? 'img' : type === 'video' ? 'video' : 'audio';
@@ -2254,16 +2333,18 @@
                 
                 container.innerHTML = list.map(asset => {
                     const tagName = type === 'image' ? 'img' : type === 'video' ? 'video' : 'audio';
+                    const isAssetId = asset.sourceKind === 'asset_id' || isAssetReferenceUrl(asset.url);
+                    const previewTitle = isAssetId ? '素材库 ASSET_ID 引用，当前页面不支持直接预览' : '点击预览';
                     return `
-                        <div class="media-item clickable ${asset.isLocal ? '' : 'success'}" onclick="previewAsset('${type}', ${asset.id})" title="点击预览">
+                        <div class="media-item clickable ${asset.isLocal ? '' : 'success'}" onclick="previewAsset('${type}', ${asset.id})" title="${previewTitle}">
                             <div class="media-preview">
-                                ${type === 'image' && !asset.isLocal ? `<img src="${asset.url}" alt="">` : 
+                                ${type === 'image' && !asset.isLocal && !isAssetId ? `<img src="${asset.url}" alt="">` : 
                                   type === 'image' ? '🖼️' :
                                   type === 'video' ? '🎬' : '🎵'}
                             </div>
                             <div class="media-info">
                                 <div class="media-name">${asset.name}</div>
-                                <div class="media-status">${asset.isLocal ? '本地预览' : `@${tagName}${asset.index}`}</div>
+                                <div class="media-status">${asset.isLocal ? '本地预览' : isAssetId ? `@${tagName}${asset.index} · ASSET_ID` : `@${tagName}${asset.index}`}</div>
                             </div>
                             <button class="btn-remove" onclick="event.stopPropagation(); removeAsset('${type}', ${asset.id})">×</button>
                         </div>
@@ -2318,6 +2399,23 @@
             addAsset(type, url, url.split('/').pop());
             input.value = '';
         }
+
+        function addAssetFromAssetId() {
+            const type = document.getElementById('assetTypeSelect').value;
+            const input = document.getElementById('assetIdInput');
+            const rawAssetId = input.value.trim();
+            if (!rawAssetId) return;
+
+            const assetUrl = normalizeAssetReference(rawAssetId);
+            const assetId = assetUrl.replace(/^asset:\/\//i, '');
+            if (!assetId) {
+                alert('请输入有效的 ASSET_ID');
+                return;
+            }
+
+            addAsset(type, assetUrl, assetId);
+            input.value = '';
+        }
         
         function handleFileSelect(event, type) {
             const files = Array.from(event.target.files);
@@ -2331,10 +2429,14 @@
                 if (type === 'video' && !file.type.startsWith('video/')) return;
                 if (type === 'audio' && !file.type.startsWith('audio/')) return;
                 
-                uploadToLitterbox(file, type);
+                uploadAsset(file, type);
             });
         }
-        
+
+        async function uploadAsset(file, type) {
+            return uploadToLitterbox(file, type);
+        }
+
         async function uploadToLitterbox(file, type) {
             const expiry = document.getElementById('litterboxExpiry').value || '12h';
             
@@ -2381,7 +2483,7 @@
             } catch (error) {
                 const tempEl = document.getElementById(tempId);
                 if (tempEl) tempEl.remove();
-                alert('上传失败: ' + error.message);
+                alert('上传失败: ' + formatFetchError(error, 'https://litterbox.catbox.moe/resources/internals/api.php'));
             }
         }
         
@@ -2393,7 +2495,7 @@
             for (let item of items) {
                 if (item.type.indexOf('image') !== -1) {
                     const blob = item.getAsFile();
-                    if (blob) uploadToLitterbox(blob, 'image');
+                    if (blob) uploadAsset(blob, 'image');
                 }
             }
         });
@@ -2431,13 +2533,17 @@
         // ==================== 任务提交（多任务） ====================
         async function submitTask() {
             const apiKey = document.getElementById('apiKey').value.trim();
-            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const baseUrl = getEffectiveBaseUrl();
             const prompt = getPromptText();
             const modelId = getSelectedModelId();
             
             if (!apiKey) { alert('请输入 API Key'); return; }
             if (!prompt) { alert('请输入提示词'); return; }
-            if (!modelId) { alert('请选择模型或输入自定义模型 ID'); return; }
+            if (!modelId) {
+                const isCustomModel = document.getElementById('model').value === '__custom__';
+                alert(isCustomModel ? '请输入自定义模型名' : '请选择模型');
+                return;
+            }
 
             const submitBtn = document.querySelector('button[onclick="submitTask()"]');
             const originalBtnText = submitBtn.innerHTML;
@@ -2521,7 +2627,7 @@
                 startPollingForTask(taskId);
                 
             } catch (error) {
-                alert('提交失败: ' + error.message);
+                alert('提交失败: ' + formatFetchError(error, `${baseUrl}/contents/generations/tasks`));
             } finally {
                 submitBtn.innerHTML = originalBtnText;
                 submitBtn.disabled = false;
@@ -2531,7 +2637,7 @@
         // ==================== 并发轮询 ====================
         function startPollingForTask(taskId) {
             const apiKey = document.getElementById('apiKey').value.trim();
-            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const baseUrl = getEffectiveBaseUrl();
             const interval = parseInt(document.getElementById('pollInterval').value) * 1000 || 10000;
             
             const doPoll = async () => {
@@ -2573,7 +2679,7 @@
 
                     updateTaskRecordMeta(taskId);
                 } catch (error) {
-                    console.error(`轮询任务 ${taskId} 失败:`, error);
+                    console.error(`轮询任务 ${taskId} 失败:`, formatFetchError(error, `${baseUrl}/contents/generations/tasks/${taskId}`));
                 }
             };
             
