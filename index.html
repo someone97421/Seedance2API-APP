@@ -1395,6 +1395,136 @@
             padding: 40px;
             font-size: 14px;
         }
+
+        /* 标签页导航 */
+        .tab-nav {
+            display: flex;
+            gap: 8px;
+            background: var(--muted-bg);
+            padding: 4px;
+            border-radius: var(--radius);
+        }
+
+        .tab-item {
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .tab-item:hover {
+            color: var(--text);
+        }
+
+        .tab-item.active {
+            background: var(--card-bg);
+            color: var(--primary);
+            box-shadow: var(--shadow);
+        }
+
+        /* 日志列表 */
+        .log-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .log-item {
+            background: var(--muted-bg);
+            border-radius: var(--radius);
+            padding: 12px;
+            border-left: 3px solid var(--primary);
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .log-item.type-info {
+            border-left-color: var(--primary);
+        }
+
+        .log-item.type-success {
+            border-left-color: var(--success);
+        }
+
+        .log-item.type-error {
+            border-left-color: var(--danger);
+        }
+
+        .log-item.type-warning {
+            border-left-color: var(--warning);
+        }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .log-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .log-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .log-badge.info {
+            background: rgba(25, 178, 75, 0.12);
+            color: var(--success);
+        }
+
+        .log-badge.success {
+            background: #e8ffea;
+            color: var(--success);
+        }
+
+        .log-badge.error {
+            background: #ffece8;
+            color: var(--danger);
+        }
+
+        .log-badge.warning {
+            background: #fff7e6;
+            color: var(--warning);
+        }
+
+        .log-message {
+            color: var(--text);
+            margin-bottom: 4px;
+            word-break: break-word;
+        }
+
+        .log-details {
+            color: var(--text-secondary);
+            font-size: 11px;
+            word-break: break-word;
+            white-space: pre-wrap;
+            background: var(--card-bg);
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 6px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .log-cost {
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--success);
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -1529,7 +1659,7 @@
                                 <option value="audio">Audio 素材</option>
                             </select>
                             <input type="text" id="assetIdInput" placeholder="输入素材库 ASSET_ID，例如 asset-2026xxxxxxxxx-xxxxx" onkeypress="if(event.key==='Enter')addAssetFromAssetId()">
-                            <button type="button" onclick="addAssetFromAssetId()">添加 ASSET_ID</button>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="addAssetFromAssetId()">添加 ASSET_ID</button>
                         </div>
                         <div class="asset-id-hint">会按文档格式自动转换为 <code>asset://&lt;asset_id&gt;</code>，并根据素材类型加入对应素材列表。</div>
                         <div class="assets-upload-row">
@@ -1666,15 +1796,21 @@
                 </div>
             </div>
             
-            <!-- 右侧：任务记录 -->
+            <!-- 右侧：任务记录 / 日志 -->
             <div class="sidebar">
                 <div class="card">
                     <div class="card-title">
-                        <span>📋 任务记录</span>
-                        <button class="btn btn-danger btn-sm" onclick="clearTaskRecords()">清空</button>
+                        <div class="tab-nav">
+                            <span class="tab-item active" onclick="switchSidebarTab('tasks')" id="tab-tasks">📋 任务记录</span>
+                            <span class="tab-item" onclick="switchSidebarTab('logs')" id="tab-logs">📝 系统日志</span>
+                        </div>
+                        <button class="btn btn-danger btn-sm" onclick="clearCurrentSidebarTab()">清空</button>
                     </div>
                     <div class="task-record-list" id="taskRecordList">
                         <div class="empty-state">暂无任务</div>
+                    </div>
+                    <div class="log-list" id="logList" style="display: none;">
+                        <div class="empty-state">暂无日志</div>
                     </div>
                 </div>
             </div>
@@ -1707,6 +1843,7 @@
             loadAllConfigs();
             loadHistory();
             loadTaskRecords();
+            loadLogs();
             initDragUploads();
             setupMentionHandlers();
             setupPromptEditorResizePersistence();
@@ -2623,11 +2760,22 @@
                 trimTaskRecords();
                 renderTaskRecords();
                 saveTaskRecords();
-                
+
+                addLog('info', `任务提交成功: ${taskId}`, `模型: ${modelId}\n分辨率: ${body.resolution}\n比例: ${body.ratio}\n时长: ${body.duration}s\n提示词: ${prompt.substring(0, 200)}${prompt.length > 200 ? '...' : ''}`, {
+                    taskId,
+                    modelId,
+                    resolution: body.resolution,
+                    ratio: body.ratio,
+                    durationSeconds: body.duration,
+                    promptPreview: `${prompt.substring(0, 200)}${prompt.length > 200 ? '...' : ''}`
+                });
+
                 startPollingForTask(taskId);
-                
+
             } catch (error) {
-                alert('提交失败: ' + formatFetchError(error, `${baseUrl}/contents/generations/tasks`));
+                const errMsg = formatFetchError(error, `${baseUrl}/contents/generations/tasks`);
+                alert('提交失败: ' + errMsg);
+                addLog('error', '任务提交失败', errMsg, { modelId, prompt: prompt.substring(0, 200) });
             } finally {
                 submitBtn.innerHTML = originalBtnText;
                 submitBtn.disabled = false;
@@ -2660,6 +2808,10 @@
                         task.timer = null;
                         task.status = 'succeeded';
                         handleTaskComplete(taskId, result);
+                        addLog('success', `任务执行成功: ${taskId}`, `总耗时: ${task.duration || getTaskDurationText(task)}`, {
+                            taskId,
+                            elapsedText: task.duration || getTaskDurationText(task)
+                        });
                     } else if (result.status === 'failed') {
                         clearInterval(task.timer);
                         task.timer = null;
@@ -2675,6 +2827,11 @@
                         task.status = 'failed';
                         updateTaskRecordElement(taskId);
                         saveTaskRecords();
+                        addLog('error', `任务执行失败: ${taskId}`, `总耗时: ${task.duration || getTaskDurationText(task)}\n响应片段: ${JSON.stringify(result).substring(0, 500)}`, {
+                            taskId,
+                            elapsedText: task.duration || getTaskDurationText(task),
+                            errorSnippet: JSON.stringify(result).substring(0, 500)
+                        });
                     }
 
                     updateTaskRecordMeta(taskId);
@@ -2732,7 +2889,7 @@
 
             if (videoUrl) {
                 openPreviewWindow('video', videoUrl, `任务 ID: ${taskId}`, '生成结果预览');
-                
+
                 addToHistory({
                     id: taskId,
                     videoUrl: videoUrl,
@@ -2751,6 +2908,38 @@
                 console.warn('任务完成但找不到视频链接:', result);
                 task.responseLog += `\n\n[报错] 找不到视频连接，完整的响应为: ${JSON.stringify(result)}`;
             }
+
+            // 查询 token 消耗并计算价格
+            const hasVideo = task.assets && task.assets.videos && task.assets.videos.length > 0;
+            const usageInfo = calculateCostFromUsage(result.usage, task.params.model, hasVideo);
+            if (usageInfo.tokens !== null) {
+                addLog('success', `Token 消耗查询成功: ${taskId}`, `实际 Token: ${usageInfo.tokens.toLocaleString()}\n费用: ${usageInfo.cost} 元`, {
+                    taskId,
+                    tokens: usageInfo.tokens,
+                    cost: usageInfo.cost,
+                    usageEstimated: false
+                });
+            } else {
+                // 如果 API 没有返回 usage，回退到预估
+                const resolution = task.params.resolution;
+                const duration = parseInt(task.params.duration) || 5;
+                let area = resolution === '720p' ? (1280 * 720) : (854 * 480);
+                const estimatedTokens = (area * 24 * duration) / 1024;
+                let pricePerMillion = 0;
+                if ((task.params.model || '').includes('fast')) {
+                    pricePerMillion = hasVideo ? 22 : 37;
+                } else {
+                    pricePerMillion = hasVideo ? 28 : 46;
+                }
+                const estimatedCost = ((estimatedTokens / 1000000) * pricePerMillion).toFixed(4);
+                addLog('warning', `Token 消耗未返回: ${taskId}`, `API 未返回 usage 字段，使用预估:\n预估 Token: ${Math.round(estimatedTokens).toLocaleString()}\n预估费用: ${estimatedCost} 元`, {
+                    taskId,
+                    tokens: Math.round(estimatedTokens),
+                    cost: estimatedCost,
+                    usageEstimated: true
+                });
+            }
+
             updateTaskRecordElement(taskId);
             saveTaskRecords();
         }
@@ -2911,7 +3100,158 @@
                 openPreviewWindow('video', task.videoUrl, `任务 ID: ${taskId}`, '任务结果预览');
             }
         }
-        
+
+        // ==================== 侧边栏标签页切换 ====================
+        let currentSidebarTab = 'tasks';
+
+        function switchSidebarTab(tab) {
+            currentSidebarTab = tab;
+            document.getElementById('tab-tasks').classList.toggle('active', tab === 'tasks');
+            document.getElementById('tab-logs').classList.toggle('active', tab === 'logs');
+            document.getElementById('taskRecordList').style.display = tab === 'tasks' ? 'flex' : 'none';
+            document.getElementById('logList').style.display = tab === 'logs' ? 'flex' : 'none';
+        }
+
+        function clearCurrentSidebarTab() {
+            if (currentSidebarTab === 'tasks') {
+                clearTaskRecords();
+            } else {
+                clearLogs();
+            }
+        }
+
+        // ==================== 日志系统 ====================
+        let appLogs = [];
+
+        function buildTaskLogMessage(log) {
+            if (!log.taskId) return log.message;
+            const statusText = {
+                error: '任务执行失败',
+                warning: log.usageEstimated ? '任务完成（Token 预估）' : '任务进行中',
+                success: '任务执行成功',
+                info: '任务已提交'
+            };
+            return `${statusText[log.type] || '任务日志'}: ${log.taskId}`;
+        }
+
+        function buildTaskLogDetails(log) {
+            const lines = [];
+            if (log.modelId) lines.push(`模型: ${log.modelId}`);
+            if (log.resolution) lines.push(`分辨率: ${log.resolution}`);
+            if (log.ratio) lines.push(`比例: ${log.ratio}`);
+            if (log.durationSeconds !== undefined && log.durationSeconds !== null) lines.push(`时长: ${log.durationSeconds}s`);
+            if (log.elapsedText) lines.push(`总耗时: ${log.elapsedText}`);
+            if (log.promptPreview) lines.push(`提示词: ${log.promptPreview}`);
+            if (log.errorSnippet) lines.push(`响应片段: ${log.errorSnippet}`);
+            return lines.join('\n');
+        }
+
+        function addLog(type, message, details, extra = {}) {
+            const log = {
+                id: 'log-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                time: new Date().toISOString(),
+                type: type || 'info',
+                message,
+                details: details || '',
+                ...extra
+            };
+            if (log.taskId) {
+                const existingIndex = appLogs.findIndex(item => item.taskId === log.taskId);
+                if (existingIndex !== -1) {
+                    const existingLog = appLogs[existingIndex];
+                    appLogs.splice(existingIndex, 1);
+                    const mergedLog = {
+                        ...existingLog,
+                        ...log,
+                        id: log.id,
+                        time: log.time,
+                        type: type || existingLog.type || 'info'
+                    };
+                    Object.assign(log, mergedLog);
+                }
+                log.message = buildTaskLogMessage(log);
+                log.details = buildTaskLogDetails(log);
+            }
+            appLogs.unshift(log);
+            // 限制日志数量
+            const limit = 500;
+            if (appLogs.length > limit) {
+                appLogs = appLogs.slice(0, limit);
+            }
+            saveLogs();
+            renderLogs();
+        }
+
+        function saveLogs() {
+            localStorage.setItem('seedance_app_logs', JSON.stringify(appLogs));
+        }
+
+        function loadLogs() {
+            try {
+                appLogs = JSON.parse(localStorage.getItem('seedance_app_logs') || '[]');
+            } catch (e) {
+                appLogs = [];
+            }
+            renderLogs();
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('logList');
+            if (!container) return;
+            if (appLogs.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无日志</div>';
+                return;
+            }
+            container.innerHTML = appLogs.map(log => {
+                const timeStr = new Date(log.time).toLocaleString();
+                const badgeClass = log.type || 'info';
+                const costHtml = log.cost !== undefined
+                    ? `<div class="log-cost">💰 Token: ${log.tokens !== undefined ? log.tokens.toLocaleString() : '-'} · 费用: ${log.cost} 元</div>`
+                    : '';
+                const detailsHtml = log.details
+                    ? `<div class="log-details">${escapeHtml(log.details)}</div>`
+                    : '';
+                return `
+                    <div class="log-item type-${badgeClass}">
+                        <div class="log-header">
+                            <span class="log-badge ${badgeClass}">${log.type}</span>
+                            <span class="log-time">${timeStr}</span>
+                        </div>
+                        <div class="log-message">${escapeHtml(log.message)}</div>
+                        ${detailsHtml}
+                        ${costHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function clearLogs() {
+            if (!confirm('确定要清空所有系统日志吗？')) return;
+            appLogs = [];
+            saveLogs();
+            renderLogs();
+        }
+
+        function calculateCostFromUsage(usage, modelId, hasVideo) {
+            // 兼容多种可能的 usage 嵌套位置
+            let u = usage;
+            if (!u || typeof u !== 'object') {
+                return { tokens: null, cost: null };
+            }
+            const tokens = u.total_tokens || u.completion_tokens || u.prompt_tokens || null;
+            if (tokens === null) return { tokens: null, cost: null };
+
+            let pricePerMillion = 0;
+            const model = (modelId || '').toLowerCase();
+            if (model.includes('fast')) {
+                pricePerMillion = hasVideo ? 22 : 37;
+            } else {
+                pricePerMillion = hasVideo ? 28 : 46;
+            }
+            const cost = (tokens / 1000000) * pricePerMillion;
+            return { tokens, cost: cost.toFixed(4) };
+        }
+
         // 格式化时长为 mm:ss 或 hh:mm:ss
         function formatDuration(seconds) {
             if (seconds < 60) {
