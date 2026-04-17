@@ -946,6 +946,17 @@
             color: var(--text-secondary);
         }
 
+        .api-config-hint {
+            margin-top: 8px;
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        .api-config-hint code {
+            word-break: break-all;
+        }
+
         @media (max-width: 768px) {
             .asset-id-row {
                 grid-template-columns: 1fr;
@@ -1558,6 +1569,10 @@
                                 <input type="text" id="baseUrl" value="https://ark.cn-beijing.volces.com/api/v3">
                             </div>
                         </div>
+                        <div class="api-config-hint">
+                            这个页面适合直接部署到 GitHub Pages，提交任务时会由浏览器直连 <code>/contents/generations/tasks</code>。
+                            如果浏览器报无法连接，而同样参数的 <code>curl</code> 可以成功，通常说明是目标接口未放开 CORS、公司网络策略拦截，或浏览器环境拦截；这类问题不能靠前端页面本身绕过。
+                        </div>
                         <div class="input-row">
                             <div class="form-group">
                                 <label>主题模式</label>
@@ -1937,9 +1952,23 @@
 
         function formatFetchError(error, targetUrl) {
             if (error && typeof error.message === 'string' && error.message.includes('Failed to fetch')) {
-                return `无法连接到 ${targetUrl}。如果你在用服务版，请先运行 python app.py 并通过 http://127.0.0.1:8765 打开页面；如果你是浏览器直连外部 API，这通常是跨域或网络拦截。`;
+                return `无法连接到 ${targetUrl}。当前页面是浏览器直连模式，不依赖本地代理。若同一请求用 curl 可以成功，而页面里失败，通常是目标接口未放开 CORS、网络策略拦截，或浏览器安全策略拦截。`;
             }
             return error?.message || '未知错误';
+        }
+
+        function escapeForCurlSingleQuotes(value) {
+            return String(value).replace(/'/g, `'\"'\"'`);
+        }
+
+        function buildCurlCommand(baseUrl, apiKey, body) {
+            const escapedBody = escapeForCurlSingleQuotes(JSON.stringify(body, null, 2));
+            return [
+                `curl -X POST ${baseUrl}/contents/generations/tasks \\`,
+                `  -H "Content-Type: application/json" \\`,
+                `  -H "Authorization: Bearer ${apiKey}" \\`,
+                `  -d '${escapedBody}'`
+            ].join('\n');
         }
 
         function setupPromptEditorResizePersistence() {
@@ -2709,14 +2738,15 @@
                 watermark: false
             };
             
-            const requestLog = `POST ${baseUrl}/contents/generations/tasks\nHeaders:\n  Authorization: Bearer ${apiKey.substring(0, 10)}...\nBody:\n${JSON.stringify(body, null, 2)}`;
-            
+            const requestLog = `POST ${baseUrl}/contents/generations/tasks\nHeaders:\n  Content-Type: application/json\n  Authorization: Bearer ${apiKey.substring(0, 10)}...\nBody:\n${JSON.stringify(body, null, 2)}\n\n等价 curl：\n${buildCurlCommand(baseUrl, apiKey, body)}`;
+
             try {
                 const response = await fetch(`${baseUrl}/contents/generations/tasks`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify(body)
                 });
@@ -2794,7 +2824,10 @@
                 
                 try {
                     const response = await fetch(`${baseUrl}/contents/generations/tasks/${taskId}`, {
-                        headers: { 'Authorization': `Bearer ${apiKey}` }
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Accept': 'application/json'
+                        }
                     });
                     const result = await response.json();
                     
