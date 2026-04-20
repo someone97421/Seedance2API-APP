@@ -1928,6 +1928,13 @@
             padding: 10px;
             margin-bottom: 12px;
             border: 1px solid var(--border);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .group-card.group-active {
+            border-color: var(--primary);
+            box-shadow: 0 8px 24px rgba(25, 178, 75, 0.12);
+            transform: translateY(-1px);
         }
 
         .group-header {
@@ -1935,11 +1942,54 @@
             align-items: center;
             justify-content: space-between;
             margin-bottom: 8px;
+            gap: 8px;
+        }
+
+        .group-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .group-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .group-toggle {
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .group-toggle:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-1px);
         }
 
         .group-name {
             font-weight: 600;
             font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .group-content.collapsed {
+            display: none;
         }
 
         .group-meta {
@@ -2007,6 +2057,33 @@
 
         .asset-cell .add-icon {
             font-size: 20px;
+            color: var(--text-secondary);
+        }
+
+        .asset-cell.upload-entry {
+            border-style: dashed;
+            gap: 8px;
+            padding: 12px;
+            text-align: center;
+            background:
+                linear-gradient(135deg, rgba(25, 178, 75, 0.08), transparent 70%),
+                var(--card-bg);
+        }
+
+        .asset-cell.upload-entry .add-icon {
+            font-size: 26px;
+            color: var(--primary);
+        }
+
+        .upload-entry-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .upload-entry-hint {
+            font-size: 11px;
+            line-height: 1.45;
             color: var(--text-secondary);
         }
 
@@ -2426,11 +2503,6 @@
                     <code>http://127.0.0.1:18765</code> 打开页面；默认端口使用较少见的 <code>18765</code>，尽量避开常见本地服务冲突。
                     素材库拉取使用的是火山引擎 <code>AK/SK</code>，不是 Seedance 生成接口里的 <code>API Key</code>。
                 </div>
-                <div class="api-config-hint">
-                    当前版本改为浏览器直连，不再依赖本地 Python 代理服务。Seedance 生成接口直接请求 <code>ark.cn-beijing.volces.com</code>，
-                    字幕擦除直接请求 <code>amk.cn-beijing.volces.com</code>，素材库接口使用下方配置的 <code>AK/SK</code> 在前端完成签名。
-                    如果浏览器报网络错误，通常是目标站点未放开 CORS、被浏览器插件拦截，或当前网络环境无法直连。
-                </div>
                 <div class="input-row">
                     <div class="form-group" style="flex: 2;">
                         <label>Seedance 2.0 Endpoint 替换</label>
@@ -2474,7 +2546,7 @@
                     </div>
                     <div class="form-group">
                         <label>轮询间隔（秒）</label>
-                        <input type="number" id="pollInterval" value="10" min="10" max="300">
+                        <input type="number" id="pollInterval" value="10" min="5" max="300">
                     </div>
                     <div class="form-group">
                         <label>任务记录保存数量</label>
@@ -2487,8 +2559,8 @@
                     <div class="form-group">
                         <label>完成后自动下载</label>
                         <select id="autoDownload" onchange="saveAllConfigs()">
-                            <option value="0" selected>关闭</option>
-                            <option value="1">开启</option>
+                            <option value="0">关闭</option>
+                            <option value="1" selected>开启</option>
                         </select>
                     </div>
                 </div>
@@ -2717,6 +2789,7 @@
         // 资源库数据
         let assetLibrary = { groups: [] };
         let pendingDeleteAssetId = null;
+        let activeAssetUploadGroupId = null;
 
         // ==================== 初始化 ====================
         document.addEventListener('DOMContentLoaded', function() {
@@ -3150,9 +3223,61 @@
             e.currentTarget.classList.remove('dragover');
             const files = e.dataTransfer.files;
             if (!files || files.length === 0) return;
+            await uploadFilesToAssetGroup(files, groupId);
+        }
+
+        function setActiveAssetUploadGroup(groupId, options = {}) {
+            const shouldRender = options.render !== false && activeAssetUploadGroupId !== groupId;
+            activeAssetUploadGroupId = groupId;
+            if (shouldRender) {
+                renderAssetLibrary();
+            }
+            if (options.focus) {
+                const target = document.querySelector(`[data-upload-group-id="${groupId}"]`);
+                if (target) target.focus();
+            }
+        }
+
+        function triggerAssetGroupUpload(groupId) {
+            setActiveAssetUploadGroup(groupId, { render: false });
+            const input = document.getElementById(`assetGroupInput-${groupId}`);
+            if (!input) return;
+            input.click();
+        }
+
+        async function handleAssetGroupFileInput(event, groupId) {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                await uploadFilesToAssetGroup(files, groupId);
+            }
+            event.target.value = '';
+        }
+
+        function extractFilesFromClipboard(event) {
+            const items = Array.from(event.clipboardData?.items || []);
+            const files = [];
+            for (const item of items) {
+                if (item.kind === 'file') {
+                    const file = item.getAsFile();
+                    if (file) files.push(file);
+                }
+            }
+            return files;
+        }
+
+        async function handleAssetGroupPaste(event, groupId) {
+            const files = extractFilesFromClipboard(event);
+            if (!files.length) return;
+            event.preventDefault();
+            setActiveAssetUploadGroup(groupId);
+            await uploadFilesToAssetGroup(files, groupId);
+        }
+
+        async function uploadFilesToAssetGroup(files, groupId) {
             const group = assetLibrary.groups.find(g => g.id === groupId);
             if (!group) return;
-            for (const file of files) {
+            setActiveAssetUploadGroup(groupId);
+            for (const file of Array.from(files)) {
                 await uploadFileToAssetGroup(file, group);
             }
         }
@@ -3226,6 +3351,87 @@
             }
         }
 
+        async function refreshAssetGroup(groupId, options = {}) {
+            const group = assetLibrary.groups.find(g => g.id === groupId);
+            if (!group) return;
+            const silent = Boolean(options.silent);
+            try {
+                const projectName = group.projectName || 'default';
+                const groupResp = await callAssetsApi('GetAssetGroup', { Id: groupId, ProjectName: projectName });
+                const groupInfo = groupResp?.Result || groupResp || {};
+                group.name = groupInfo.Name || group.name;
+                group.description = groupInfo.Description || group.description || '';
+                group.projectName = groupInfo.ProjectName || projectName;
+
+                const remoteItems = [];
+                let pageNumber = 1;
+                let totalCount = 0;
+
+                do {
+                    const listResp = await callAssetsApi('ListAssets', {
+                        Filter: { GroupIds: [groupId], GroupType: 'AIGC' },
+                        PageNumber: pageNumber,
+                        PageSize: 100,
+                        SortBy: 'CreateTime',
+                        SortOrder: 'Desc',
+                        ProjectName: group.projectName || projectName
+                    });
+                    const items = listResp?.Result?.Items || listResp?.Items || [];
+                    totalCount = listResp?.Result?.TotalCount || listResp?.TotalCount || 0;
+                    remoteItems.push(...items);
+                    pageNumber += 1;
+                } while (remoteItems.length < totalCount && totalCount > 0);
+
+                const tempAssets = group.assets.filter(a => String(a.id || '').startsWith('temp-'));
+                const remoteIds = new Set(remoteItems.map(item => item.Id));
+                const existingNonTemp = group.assets.filter(a => !String(a.id || '').startsWith('temp-'));
+                const mergedAssets = [];
+
+                remoteItems.forEach(item => {
+                    const existing = existingNonTemp.find(a => a.id === item.Id);
+                    const asset = {
+                        id: item.Id,
+                        name: item.Name || existing?.name || '',
+                        url: item.URL || existing?.url || '',
+                        assetType: item.AssetType || existing?.assetType || 'Image',
+                        status: item.Status || existing?.status || 'Processing',
+                        groupId: group.id,
+                        projectName: item.ProjectName || group.projectName || 'default',
+                        error: item.Error || existing?.error || null
+                    };
+                    mergedAssets.push(asset);
+                    if (asset.status === 'Processing') {
+                        startAssetPolling(asset.id, group.id);
+                    }
+                });
+
+                existingNonTemp.forEach(asset => {
+                    if (!remoteIds.has(asset.id) && (asset.status === 'Uploading' || asset.status === 'Creating' || asset.status === 'Processing')) {
+                        mergedAssets.push(asset);
+                    }
+                });
+
+                group.assets = [...tempAssets, ...mergedAssets];
+                saveAssetLibrary();
+                renderAssetLibrary();
+                if (!silent) addLog('success', '刷新素材组合成功', `${group.name || group.id} · ${remoteItems.length} 个素材`);
+            } catch (e) {
+                if (!silent) {
+                    alert('刷新素材组合失败: ' + e.message);
+                    addLog('error', '刷新素材组合失败', e.message);
+                }
+                throw e;
+            }
+        }
+
+        function toggleGroupCollapsed(groupId) {
+            const group = assetLibrary.groups.find(g => g.id === groupId);
+            if (!group) return;
+            group.collapsed = !group.collapsed;
+            saveAssetLibrary();
+            renderAssetLibrary();
+        }
+
         async function uploadToLitterboxRaw(file) {
             const expiry = document.getElementById('litterboxExpiry').value || '12h';
             const formData = new FormData();
@@ -3269,7 +3475,7 @@
                 } catch (e) {
                     console.error('轮询 asset 失败', e);
                 }
-            }, 3000);
+            }, 5000);
             assetPollTimers.set(assetId, timer);
         }
 
@@ -3283,7 +3489,6 @@
             }
             container.innerHTML = assetLibrary.groups.map(g => {
                 const assetsHtml = g.assets.map((a, idx) => {
-                    const isTemp = a.id.startsWith('temp-');
                     const statusClass = a.status === 'Active' ? 'active' : a.status === 'Failed' ? 'failed' : 'processing';
                     const thumb = getAssetThumbHtml(a);
                     return `
@@ -3302,28 +3507,50 @@
                         </div>
                     `;
                 }).join('');
-                // 加一个空格子用于拖拽上传
                 const dropZone = `
-                    <div class="asset-cell"
-                        ondragover="onAssetCellDragOver(event)"
+                    <div class="asset-cell upload-entry ${activeAssetUploadGroupId === g.id ? 'dragover' : ''}"
+                        data-upload-group-id="${g.id}"
+                        tabindex="0"
+                        title="支持拖拽、点击上传、Ctrl+V 粘贴"
+                        onclick="triggerAssetGroupUpload('${g.id}')"
+                        onfocus="setActiveAssetUploadGroup('${g.id}')"
+                        ondragover="setActiveAssetUploadGroup('${g.id}');onAssetCellDragOver(event)"
                         ondragleave="onAssetCellDragLeave(event)"
-                        ondrop="onAssetCellDrop(event, '${g.id}')">
+                        ondrop="onAssetCellDrop(event, '${g.id}')"
+                        onpaste="handleAssetGroupPaste(event, '${g.id}')">
+                        <input type="file" id="assetGroupInput-${g.id}" multiple style="display:none"
+                            accept="image/*,video/*,audio/*"
+                            onclick="event.stopPropagation()"
+                            onchange="handleAssetGroupFileInput(event, '${g.id}')">
                         <span class="add-icon">➕</span>
+                        <div class="upload-entry-title">添加素材</div>
+                        <div class="upload-entry-hint">拖拽 / 点击上传 / Ctrl+V 粘贴</div>
                     </div>
                 `;
+                const isCollapsed = Boolean(g.collapsed);
                 return `
-                    <div class="group-card">
+                    <div class="group-card ${activeAssetUploadGroupId === g.id ? 'group-active' : ''}">
                         <div class="group-header">
-                            <span class="group-name">${escapeHtml(g.name || '未命名')}</span>
-                            <button class="btn btn-danger btn-sm" onclick="deleteGroup('${g.id}')" title="删除组合">🗑️</button>
+                            <div class="group-title-row" onclick="setActiveAssetUploadGroup('${g.id}')">
+                                <button class="group-toggle" onclick="event.stopPropagation();toggleGroupCollapsed('${g.id}')" title="${isCollapsed ? '展开分组' : '收起分组'}">
+                                    ${isCollapsed ? '▸' : '▾'}
+                                </button>
+                                <span class="group-name">${escapeHtml(g.name || '未命名')}</span>
+                            </div>
+                            <div class="group-actions">
+                                <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();refreshAssetGroup('${g.id}')" title="刷新当前分组">⟳</button>
+                                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteGroup('${g.id}')" title="删除组合">🗑️</button>
+                            </div>
                         </div>
-                        <div class="group-meta">
-                            <span class="copyable-id" onclick="copyText('${g.id}')" title="点击复制">${g.id}</span>
-                            <span>${g.assets.length} 个素材</span>
-                        </div>
-                        <div class="asset-grid">
-                            ${assetsHtml}
-                            ${dropZone}
+                        <div class="group-content ${isCollapsed ? 'collapsed' : ''}">
+                            <div class="group-meta">
+                                <span class="copyable-id" onclick="copyText('${g.id}')" title="点击复制">${g.id}</span>
+                                <span>${g.assets.length} 个素材</span>
+                            </div>
+                            <div class="asset-grid">
+                                ${assetsHtml}
+                                ${dropZone}
+                            </div>
                         </div>
                     </div>
                 `;
@@ -3364,6 +3591,9 @@
         function deleteGroup(groupId) {
             if (!confirm('确定要删除该本地资源组合记录吗？（不会删除云端素材）')) return;
             assetLibrary.groups = assetLibrary.groups.filter(g => g.id !== groupId);
+            if (activeAssetUploadGroupId === groupId) {
+                activeAssetUploadGroupId = assetLibrary.groups[0]?.id || null;
+            }
             saveAssetLibrary();
             renderAssetLibrary();
         }
@@ -3383,6 +3613,17 @@
                 const raw = localStorage.getItem('seedance_asset_library');
                 if (raw) assetLibrary = JSON.parse(raw);
             } catch (e) { assetLibrary = { groups: [] }; }
+            if (!assetLibrary || !Array.isArray(assetLibrary.groups)) {
+                assetLibrary = { groups: [] };
+            }
+            assetLibrary.groups = assetLibrary.groups.map(group => ({
+                ...group,
+                collapsed: Boolean(group.collapsed),
+                assets: Array.isArray(group.assets) ? group.assets : []
+            }));
+            activeAssetUploadGroupId = activeAssetUploadGroupId && assetLibrary.groups.some(g => g.id === activeAssetUploadGroupId)
+                ? activeAssetUploadGroupId
+                : (assetLibrary.groups[0]?.id || null);
             renderAssetLibrary();
             // 恢复运行中素材的轮询
             for (const g of assetLibrary.groups) {
@@ -3417,6 +3658,7 @@
             const normalizedBaseUrl = (!config.baseUrl || !String(config.baseUrl).trim())
                 ? getDefaultBaseUrl()
                 : config.baseUrl;
+            const normalizedAutoDownload = config.autoDownload === undefined ? '1' : String(config.autoDownload);
 
             if (config.apiKey) document.getElementById('apiKey').value = config.apiKey;
             if (config.assetsAk) document.getElementById('assetsAk').value = config.assetsAk;
@@ -3452,10 +3694,10 @@
             if (config.duration) document.getElementById('duration').value = config.duration;
             if (config.seed !== undefined) document.getElementById('seed').value = config.seed;
             if (config.generateAudio !== undefined) document.getElementById('generateAudio').checked = config.generateAudio;
-            if (config.autoDownload) document.getElementById('autoDownload').value = config.autoDownload;
+            document.getElementById('autoDownload').value = normalizedAutoDownload;
             if (config.promptEditorHeight) promptEditor.style.height = config.promptEditorHeight;
 
-            if (normalizedBaseUrl !== config.baseUrl) {
+            if (normalizedBaseUrl !== config.baseUrl || config.autoDownload === undefined) {
                 saveAllConfigs();
             }
 
@@ -4328,12 +4570,16 @@
         // 粘贴上传
         document.addEventListener('paste', (e) => {
             if (e.target.closest('#promptEditor')) return;
-
-            const items = e.clipboardData.items;
-            for (let item of items) {
-                if (item.type.indexOf('image') !== -1) {
-                    const blob = item.getAsFile();
-                    if (blob) uploadAsset(blob, 'image');
+            const files = extractFilesFromClipboard(e);
+            if (!files.length) return;
+            if (activeAssetUploadGroupId) {
+                e.preventDefault();
+                uploadFilesToAssetGroup(files, activeAssetUploadGroupId);
+                return;
+            }
+            for (const file of files) {
+                if (file.type.indexOf('image') !== -1) {
+                    uploadAsset(file, 'image');
                 }
             }
         });
