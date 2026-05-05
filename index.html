@@ -2353,6 +2353,7 @@
                                         <select id="resolution">
                                             <option value="480p" selected>480p</option>
                                             <option value="720p">720p</option>
+                                            <option value="1080p">1080p</option>
                                         </select>
                                     </div>
                                     <div class="form-group">
@@ -3690,6 +3691,7 @@
             if (config.model) setSelectedModelId(config.model);
             else setSelectedModelId(document.getElementById('model').value);
             if (config.resolution) document.getElementById('resolution').value = config.resolution;
+            syncResolutionOptions();
             if (config.ratio) document.getElementById('ratio').value = config.ratio;
             if (config.duration) document.getElementById('duration').value = config.duration;
             if (config.seed !== undefined) document.getElementById('seed').value = config.seed;
@@ -3814,33 +3816,137 @@
             window.promptEditorResizeObserver.observe(promptEditor);
         }
 
+        const SEEDANCE_PRICING = {
+            fps: 24,
+            dimensions: {
+                '480p': {
+                    '16:9': [864, 496],
+                    '9:16': [496, 864],
+                    '4:3': [752, 560],
+                    '3:4': [560, 752],
+                    '1:1': [640, 640],
+                    '21:9': [992, 432]
+                },
+                '720p': {
+                    '16:9': [1280, 720],
+                    '9:16': [720, 1280],
+                    '4:3': [1112, 834],
+                    '3:4': [834, 1112],
+                    '1:1': [960, 960],
+                    '21:9': [1470, 630]
+                },
+                '1080p': {
+                    '16:9': [1920, 1080],
+                    '9:16': [1080, 1920],
+                    '4:3': [1664, 1248],
+                    '3:4': [1248, 1664],
+                    '1:1': [1440, 1440],
+                    '21:9': [2206, 946]
+                }
+            },
+            minTokensWithVideo: {
+                '480p': {
+                    '16:9': [70308, 90396, 100440, 120528, 140616, 150660, 170748, 190836, 200880, 220968, 241056, 251100],
+                    '9:16': [70308, 90396, 100440, 120528, 140616, 150660, 170748, 190836, 200880, 220968, 241056, 251100],
+                    '4:3': [69090, 88830, 98700, 118440, 138180, 148050, 167790, 187530, 197400, 217140, 236880, 246750],
+                    '3:4': [69090, 88830, 98700, 118440, 138180, 148050, 167790, 187530, 197400, 217140, 236880, 246750],
+                    '1:1': [67200, 86400, 96000, 115200, 134400, 144000, 163200, 182400, 192000, 211200, 230400, 240000],
+                    '21:9': [70308, 90396, 100440, 120528, 140616, 150660, 170748, 190836, 200880, 220968, 241056, 251100]
+                },
+                '720p': {
+                    '16:9': [151200, 194400, 216000, 259200, 302400, 324000, 367200, 410400, 432000, 475200, 518400, 540000],
+                    '9:16': [151200, 194400, 216000, 259200, 302400, 324000, 367200, 410400, 432000, 475200, 518400, 540000],
+                    '4:3': [152153, 195625, 217361, 260834, 304306, 326042, 369514, 412986, 434723, 478195, 521667, 543403],
+                    '3:4': [152153, 195625, 217361, 260834, 304306, 326042, 369514, 412986, 434723, 478195, 521667, 543403],
+                    '1:1': [151200, 194400, 216000, 259200, 302400, 324000, 367200, 410400, 432000, 475200, 518400, 540000],
+                    '21:9': [151938, 195349, 217055, 260466, 303877, 325582, 368993, 412404, 434109, 477520, 520931, 542637]
+                },
+                '1080p': {
+                    '16:9': [340200, 437400, 486000, 583200, 680400, 729000, 826200, 923400, 972000, 1069200, 1166400, 1215000],
+                    '9:16': [340200, 437400, 486000, 583200, 680400, 729000, 826200, 923400, 972000, 1069200, 1166400, 1215000],
+                    '4:3': [340704, 438048, 486720, 584064, 681408, 730080, 827424, 924768, 973440, 1070784, 1168128, 1216800],
+                    '3:4': [340704, 438048, 486720, 584064, 681408, 730080, 827424, 924768, 973440, 1070784, 1168128, 1216800],
+                    '1:1': [340200, 437400, 486000, 583200, 680400, 729000, 826200, 923400, 972000, 1069200, 1166400, 1215000],
+                    '21:9': [342378, 440200, 489112, 586934, 684756, 733667, 831490, 929312, 978223, 1076045, 1173868, 1222779]
+                }
+            }
+        };
+
+        function isFastBillingModel(modelId) {
+            return String(modelId || '').toLowerCase().includes('fast');
+        }
+
+        function getSelectedBillingModelId() {
+            return document.getElementById('model')?.value || getSelectedModelId();
+        }
+
+        function getPricePerMillion(modelId, resolution, hasVideo) {
+            if (isFastBillingModel(modelId)) return hasVideo ? 22 : 37;
+            if (resolution === '1080p') return hasVideo ? 31 : 51;
+            return hasVideo ? 28 : 46;
+        }
+
+        function getResolutionDimensions(resolution, ratio) {
+            return SEEDANCE_PRICING.dimensions[resolution]?.[ratio] ||
+                SEEDANCE_PRICING.dimensions[resolution]?.['16:9'] ||
+                SEEDANCE_PRICING.dimensions['480p']['16:9'];
+        }
+
+        function getMinTokensWithVideo(resolution, ratio, duration) {
+            const byRatio = SEEDANCE_PRICING.minTokensWithVideo[resolution]?.[ratio];
+            if (!byRatio) return 0;
+            const boundedDuration = Math.max(4, Math.min(15, parseInt(duration, 10) || 5));
+            return byRatio[boundedDuration - 4] || 0;
+        }
+
+        function estimateVideoTokens({ resolution, ratio, duration, hasVideo }) {
+            const [width, height] = getResolutionDimensions(resolution, ratio);
+            const outputDuration = Math.max(4, Math.min(15, parseInt(duration, 10) || 5));
+            const formulaTokens = (outputDuration * width * height * SEEDANCE_PRICING.fps) / 1024;
+            if (!hasVideo) return Math.round(formulaTokens);
+            return Math.round(Math.max(formulaTokens, getMinTokensWithVideo(resolution, ratio, outputDuration)));
+        }
+
+        function estimateVideoCost({ modelId, resolution, ratio, duration, hasVideo }) {
+            const tokens = estimateVideoTokens({ resolution, ratio, duration, hasVideo });
+            const pricePerMillion = getPricePerMillion(modelId, resolution, hasVideo);
+            const cost = (tokens / 1000000) * pricePerMillion;
+            return { tokens, cost, pricePerMillion };
+        }
+
+        function syncResolutionOptions() {
+            const resolutionSelect = document.getElementById('resolution');
+            if (!resolutionSelect) return;
+            const option1080p = Array.from(resolutionSelect.options).find(opt => opt.value === '1080p');
+            if (!option1080p) return;
+            const isFast = isFastBillingModel(getSelectedBillingModelId());
+            option1080p.disabled = isFast;
+            option1080p.hidden = isFast;
+            if (isFast && resolutionSelect.value === '1080p') {
+                resolutionSelect.value = '720p';
+            }
+        }
+
         function updateEstimate() {
-            const model = getSelectedModelId();
+            syncResolutionOptions();
+            const model = getSelectedBillingModelId();
             if (!model) return;
 
             const resolution = document.getElementById('resolution').value;
+            const ratio = document.getElementById('ratio').value;
             const duration = parseInt(document.getElementById('duration').value) || 5;
             const hasVideo = assets.videos.length > 0;
-
-            let area = resolution === '720p' ? (1280 * 720) : (854 * 480);
-            const tokens = (area * 24 * duration) / 1024;
-
-            let pricePerMillion = 0;
-            if (model.includes('fast')) {
-                pricePerMillion = hasVideo ? 22 : 37;
-            } else {
-                pricePerMillion = hasVideo ? 28 : 46;
-            }
-
-            const cost = (tokens / 1000000) * pricePerMillion;
+            const { tokens, cost } = estimateVideoCost({ modelId: model, resolution, ratio, duration, hasVideo });
 
             const estimateEl = document.getElementById('costEstimate');
             if (estimateEl) {
-                estimateEl.textContent = `预估: ${Math.round(tokens).toLocaleString()} Tokens (约 ${cost.toFixed(3)} 元)`;
+                const prefix = hasVideo ? '预估(含视频最低):' : '预估:';
+                estimateEl.textContent = `${prefix} ${tokens.toLocaleString()} Tokens (约 ${cost.toFixed(3)} 元)`;
             }
         }
 
         function onModelSelectChange() {
+            syncResolutionOptions();
             saveAllConfigs();
         }
 
@@ -4627,6 +4733,13 @@
                 alert('请选择模型');
                 return;
             }
+            syncResolutionOptions();
+            const billingModel = getSelectedBillingModelId();
+            const selectedResolution = document.getElementById('resolution').value;
+            if (isFastBillingModel(billingModel) && selectedResolution === '1080p') {
+                alert('Seedance 2.0 Fast 不支持 1080p，请切换到 Seedance 2.0 或选择 480p/720p。');
+                return;
+            }
 
             const submitBtn = document.querySelector('button[onclick="submitTask()"]');
             const originalBtnText = submitBtn.innerHTML;
@@ -4648,7 +4761,7 @@
                 model: modelId,
                 content: content,
                 generate_audio: document.getElementById('generateAudio').checked,
-                resolution: document.getElementById('resolution').value,
+                resolution: selectedResolution,
                 ratio: document.getElementById('ratio').value,
                 duration: parseInt(document.getElementById('duration').value),
                 seed: isNaN(parseInt(document.getElementById('seed').value)) ? -1 : parseInt(document.getElementById('seed').value),
@@ -4686,7 +4799,8 @@
                     assets: JSON.parse(JSON.stringify(assets)),
                     params: {
                         model: modelId,
-                        resolution: document.getElementById('resolution').value,
+                        billingModel: billingModel,
+                        resolution: selectedResolution,
                         ratio: document.getElementById('ratio').value,
                         duration: document.getElementById('duration').value,
                         seed: document.getElementById('seed').value,
@@ -4933,7 +5047,7 @@
 
             if (getTaskKind(task) === 'generate') {
                 const hasVideo = task.assets && task.assets.videos && task.assets.videos.length > 0;
-                const usageInfo = calculateCostFromUsage(result.usage, task.params.model, hasVideo);
+                const usageInfo = calculateCostFromUsage(result.usage, task.params.billingModel || task.params.model, hasVideo, task.params.resolution);
                 if (usageInfo.tokens !== null) {
                     addLog('success', `Token 消耗查询成功: ${taskId}`, `实际 Token: ${usageInfo.tokens.toLocaleString()}\n费用: ${usageInfo.cost} 元`, {
                         taskId,
@@ -4944,20 +5058,20 @@
                     });
                 } else {
                     const resolution = task.params.resolution;
+                    const ratio = task.params.ratio || '16:9';
                     const duration = parseInt(task.params.duration) || 5;
-                    let area = resolution === '720p' ? (1280 * 720) : (854 * 480);
-                    const estimatedTokens = (area * 24 * duration) / 1024;
-                    let pricePerMillion = 0;
-                    if ((task.params.model || '').includes('fast')) {
-                        pricePerMillion = hasVideo ? 22 : 37;
-                    } else {
-                        pricePerMillion = hasVideo ? 28 : 46;
-                    }
-                    const estimatedCost = ((estimatedTokens / 1000000) * pricePerMillion).toFixed(4);
-                    addLog('warning', `Token 消耗未返回: ${taskId}`, `API 未返回 usage 字段，使用预估:\n预估 Token: ${Math.round(estimatedTokens).toLocaleString()}\n预估费用: ${estimatedCost} 元`, {
+                    const estimate = estimateVideoCost({
+                        modelId: task.params.billingModel || task.params.model,
+                        resolution,
+                        ratio,
+                        duration,
+                        hasVideo
+                    });
+                    const estimatedCost = estimate.cost.toFixed(4);
+                    addLog('warning', `Token 消耗未返回: ${taskId}`, `API 未返回 usage 字段，使用预估:\n预估 Token: ${estimate.tokens.toLocaleString()}\n预估费用: ${estimatedCost} 元`, {
                         taskId,
                         taskKind: 'generate',
-                        tokens: Math.round(estimatedTokens),
+                        tokens: estimate.tokens,
                         cost: estimatedCost,
                         usageEstimated: true
                     });
@@ -5256,21 +5370,15 @@
             renderLogs();
         }
 
-        function calculateCostFromUsage(usage, modelId, hasVideo) {
+        function calculateCostFromUsage(usage, modelId, hasVideo, resolution = '480p') {
             let u = usage;
             if (!u || typeof u !== 'object') {
                 return { tokens: null, cost: null };
             }
-            const tokens = u.total_tokens || u.completion_tokens || u.prompt_tokens || null;
+            const tokens = u.completion_tokens || u.total_tokens || u.prompt_tokens || null;
             if (tokens === null) return { tokens: null, cost: null };
 
-            let pricePerMillion = 0;
-            const model = (modelId || '').toLowerCase();
-            if (model.includes('fast')) {
-                pricePerMillion = hasVideo ? 22 : 37;
-            } else {
-                pricePerMillion = hasVideo ? 28 : 46;
-            }
+            const pricePerMillion = getPricePerMillion(modelId, resolution, hasVideo);
             const cost = (tokens / 1000000) * pricePerMillion;
             return { tokens, cost: cost.toFixed(4) };
         }
